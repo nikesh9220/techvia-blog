@@ -114,7 +114,11 @@ h1.post-title {
   color: var(--dark-slate);
   font-weight: 700;
 }
-.dark .post-entry .entry-header h2 { color: var(--light-gray); }
+.dark .post-entry .entry-header h2,
+.dark .post-entry .entry-header h2 a,
+.dark .post-entry a.entry-link {
+  color: #f1f5f9 !important;
+}
 
 /* ── Tags & categories ────────────────────────────────── */
 .post-tags a,
@@ -153,6 +157,19 @@ h1.post-title {
 }
 .dark .toc {
   background: #1e293b;
+}
+
+/* ── Back to main site nav link ───────────────────────── */
+#site-header nav a[href="https://www.techvia.software/"] {
+  opacity: 0.65;
+  font-size: 0.85rem;
+  border-right: 1px solid var(--border);
+  padding-right: 0.9rem;
+  margin-right: 0.25rem;
+}
+#site-header nav a[href="https://www.techvia.software/"]:hover {
+  opacity: 1;
+  color: var(--brand-blue);
 }
 
 /* ── Breadcrumbs ──────────────────────────────────────── */

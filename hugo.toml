@@ -15,8 +15,8 @@ buildFuture = false
 [params]
   env = "production"
   title = "Techvia Blog"
-  description = "Insights on AI-first development, Angular 18, .NET Core, and Azure DevOps by Nikesh Pandya"
-  author = "Nikesh Pandya"
+  description = "Practical insights on Web Development, Cloud Solutions, and emerging technology — from the team at Techvia, empowering businesses with innovative solutions."
+  author = "Techvia"
   defaultTheme = "auto"
   ShowReadingTime = true
   ShowShareButtons = true
@@ -28,7 +28,7 @@ buildFuture = false
 
   [params.homeInfoParams]
     Title = "Techvia Blog"
-    Content = "AI-first development, Angular 18, .NET Core 8, and Azure — by Nikesh Pandya, founder of Techvia."
+    Content = "Practical insights on Web Development, Cloud Solutions, Mobile Development, and IT Consulting — from the team at Techvia. We help businesses transform through innovative, scalable technology."
 
 [[params.socialIcons]]
   name = "linkedin"
@@ -48,6 +48,11 @@ buildFuture = false
 [markup.highlight]
   noClasses = false
 
+[[menu.main]]
+  identifier = "main-site"
+  name = "← Techvia"
+  url = "https://www.techvia.software/"
+  weight = 5
 [[menu.main]]
   identifier = "home"
   name = "Home"
