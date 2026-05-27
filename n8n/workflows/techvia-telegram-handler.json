@@ -1,0 +1,109 @@
+{
+  "name": "techvia-telegram-approval-handler",
+  "nodes": [
+    {
+      "id": "node-tg-trigger",
+      "name": "Telegram Callback",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "parameters": {
+        "updates": ["callback_query"]
+      },
+      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+    },
+    {
+      "id": "node-extract",
+      "name": "Extract Choice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "jsCode": "const cb = $json.callback_query;\nconst choice = cb.data;\nconst messageId = cb.message.message_id;\n\nconst staticData = $getWorkflowStaticData('global');\nconst resumeUrl = staticData[`resume_${messageId}`];\n\nif (!resumeUrl) {\n  return [{ json: { error: 'No waiting workflow found for message ' + messageId, callbackQueryId: cb.id } }];\n}\n\nconst topicNum = choice === 'topic_skip' ? null : parseInt(choice.replace('topic_', '')) - 1;\ndelete staticData[`resume_${messageId}`];\n\nreturn [{ json: { resumeUrl, topicNum, isSkip: choice === 'topic_skip', callbackQueryId: cb.id, valid: true } }];"
+      }
+    },
+    {
+      "id": "node-answer-cb",
+      "name": "Answer Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $vars.TELEGRAM_BOT_TOKEN }}/answerCallbackQuery",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ callback_query_id: $json.callbackQueryId, text: $json.isSkip ? '⏭ Skipping today' : '✅ Got it! Writing now...' }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-check-valid",
+      "name": "Has Resume URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "valid-check", "leftValue": "={{ $json.valid }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-check-skip",
+      "name": "Is Skip?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1050, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "skip-check", "leftValue": "={{ $json.isSkip }}", "rightValue": false, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-resume",
+      "name": "Resume Main Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 100],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.resumeUrl }}",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ topicNum: $json.topicNum, isSkip: false }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Callback": { "main": [[{ "node": "Extract Choice", "type": "main", "index": 0 }]] },
+    "Extract Choice": { "main": [[{ "node": "Answer Callback", "type": "main", "index": 0 }]] },
+    "Answer Callback": { "main": [[{ "node": "Has Resume URL?", "type": "main", "index": 0 }]] },
+    "Has Resume URL?": {
+      "main": [
+        [{ "node": "Is Skip?", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Is Skip?": {
+      "main": [
+        [{ "node": "Resume Main Workflow", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": [{ "name": "techvia-blog" }],
+  "triggerCount": 0
+}

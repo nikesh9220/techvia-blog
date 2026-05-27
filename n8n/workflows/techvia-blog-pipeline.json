@@ -1,0 +1,307 @@
+{
+  "name": "techvia-daily-blog",
+  "nodes": [
+    {
+      "id": "node-schedule",
+      "name": "Daily 6AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 6 * * *" }]
+        }
+      }
+    },
+    {
+      "id": "node-rss-hn",
+      "name": "HN Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [450, 150],
+      "parameters": {
+        "url": "https://hnrss.org/frontpage"
+      }
+    },
+    {
+      "id": "node-rss-tc",
+      "name": "TechCrunch Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://techcrunch.com/feed/"
+      }
+    },
+    {
+      "id": "node-rss-devto",
+      "name": "DevTo Feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [450, 450],
+      "parameters": {
+        "url": "https://dev.to/feed/tag/webdev"
+      }
+    },
+    {
+      "id": "node-rss-merge",
+      "name": "Merge RSS",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [700, 300],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "node-rss-flatten",
+      "name": "Flatten News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst news = items\n  .map(i => ({\n    title: i.json.title || '',\n    snippet: i.json.contentSnippet || i.json.content || i.json.summary || ''\n  }))\n  .filter(n => n.title.length > 10)\n  .slice(0, 15);\nreturn [{ json: { news } }];"
+      }
+    },
+    {
+      "id": "node-topics",
+      "name": "Select Topics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: 'You are a content strategist for Techvia — a tech company offering Web Development, Cloud Solutions, Mobile Development, and IT Consulting.' }, { role: 'user', content: 'Based on these news items, pick the 3 most relevant trending topics for a Techvia blog post. Return ONLY a JSON array: [{\"title\": \"...\", \"angle\": \"one sentence hook\", \"pillar\": \"service category\"}]. News: ' + JSON.stringify($json.news.slice(0,8).map(n => n.title + ': ' + n.snippet)) }], max_tokens: 500 }) }}",
+        "options": {}
+      },
+      "credentials": { "httpHeaderAuth": { "id": "OPENROUTER_CRED_ID", "name": "OpenRouter" } }
+    },
+    {
+      "id": "node-parse",
+      "name": "Parse Topics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300],
+      "parameters": {
+        "jsCode": "const raw = $json.choices[0].message.content;\nconst topics = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\nreturn [{ json: { topics, topicsText: topics.map((t, i) => `${i+1}. <b>${t.title}</b>\\n   ${t.angle} [${t.pillar}]`).join('\\n\\n') } }];"
+      }
+    },
+    {
+      "id": "node-tg-send",
+      "name": "Send Approval Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1500, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "=📰 <b>Daily Blog Topics — pick one:</b>\\n\\n{{ $json.topicsText }}\\n\\nReply with 1, 2, or 3. Reply SKIP to abort.",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [{
+              "row": {
+                "buttons": [
+                  { "text": "1️⃣", "callback_data": "topic_1" },
+                  { "text": "2️⃣", "callback_data": "topic_2" },
+                  { "text": "3️⃣", "callback_data": "topic_3" },
+                  { "text": "⏭ SKIP", "callback_data": "topic_skip" }
+                ]
+              }
+            }]
+          }
+        }
+      },
+      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+    },
+    {
+      "id": "node-store-resume",
+      "name": "Store Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 300],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst messageId = $('Send Approval Message').item.json.result.message_id;\nstaticData[`resume_${messageId}`] = $execution.resumeUrl;\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "node-wait",
+      "name": "Wait for Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1900, 300],
+      "parameters": {
+        "resume": "webhook",
+        "options": { "webhookSuffix": "/approval" }
+      }
+    },
+    {
+      "id": "node-check-skip",
+      "name": "Skipped?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2100, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "skip-check", "leftValue": "={{ $json.isSkip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-tg-skip",
+      "name": "Notify Skip",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2300, 150],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "⏭ Skipped today's blog post.",
+        "additionalFields": {}
+      },
+      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+    },
+    {
+      "id": "node-writer",
+      "name": "Write Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2300, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4-5', messages: [{ role: 'system', content: 'You are a senior tech writer for Techvia (techvia.software — Web Dev, Cloud, Mobile, IT Consulting). Write complete SEO-optimised Hugo blog posts in markdown. Use H2/H3 headings, include code examples where relevant, 800-1200 words, end with a CTA paragraph linking to https://techvia.software.' }, { role: 'user', content: 'Write a full blog post about: ' + $json.topic_title + '. Angle: ' + $json.topic_angle }], max_tokens: 2500 }) }}",
+        "options": {}
+      },
+      "credentials": { "httpHeaderAuth": { "id": "OPENROUTER_CRED_ID", "name": "OpenRouter" } }
+    },
+    {
+      "id": "node-metadata",
+      "name": "Extract Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2500, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'user', content: 'Extract metadata from this blog post. Return ONLY JSON: {\"slug\": \"kebab-case-no-date\", \"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Web Development|Cloud Solutions|Mobile Development|IT Consulting|SaaS Development|AI Development\"}. Post: ' + $json.choices[0].message.content.substring(0, 1500) }], max_tokens: 300 }) }}"
+      },
+      "credentials": { "httpHeaderAuth": { "id": "OPENROUTER_CRED_ID", "name": "OpenRouter" } }
+    },
+    {
+      "id": "node-assembler",
+      "name": "Assemble Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2700, 400],
+      "parameters": {
+        "jsCode": "const today = new Date().toISOString().split('T')[0];\nconst content = $('Write Article').item.json.choices[0].message.content;\nconst metaRaw = $json.choices[0].message.content;\nconst meta = JSON.parse(metaRaw.replace(/```json\\n?|```/g, '').trim());\nconst title = $('Wait for Approval').item.json.topic_title;\nconst filename = `${today}-${meta.slug}.md`;\nconst frontmatter = `---\\ntitle: \"${title.replace(/\"/g, '\\\\\"')}\"\\ndate: ${today}\\ndraft: false\\ntags: ${JSON.stringify(meta.tags)}\\ncategories: [\"${meta.category}\"]\\ndescription: \"${meta.seo_description.replace(/\"/g, '\\\\\"')}\"\\nshowToc: true\\n---\\n\\n`;\nreturn [{ json: { filename, markdown: frontmatter + content, slug: meta.slug, title } }];"
+      }
+    },
+    {
+      "id": "node-b64",
+      "name": "Base64 Encode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2900, 400],
+      "parameters": {
+        "jsCode": "const content = $json.markdown;\nconst encoded = Buffer.from(content).toString('base64');\nreturn [{ json: { ...$json, content_b64: encoded } }];"
+      }
+    },
+    {
+      "id": "node-github",
+      "name": "Commit to GitHub",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3100, 400],
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/nikesh9220/techvia-blog/contents/content/posts/{{ $json.filename }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ message: 'feat: auto-publish \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}",
+        "options": {}
+      },
+      "credentials": { "httpHeaderAuth": { "id": "GITHUB_CRED_ID", "name": "GitHub PAT" } }
+    },
+    {
+      "id": "node-tg-success",
+      "name": "Notify Success",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3300, 400],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "=✅ <b>Published!</b>\\n\\n📝 {{ $('Assemble Markdown').item.json.title }}\\n🔗 https://blogs.techvia.software/posts/{{ $('Assemble Markdown').item.json.slug }}/\\n\\nCloudflare is deploying (~30 sec) 🚀",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+    }
+  ],
+  "connections": {
+    "Daily 6AM": {
+      "main": [[
+        { "node": "HN Feed", "type": "main", "index": 0 },
+        { "node": "TechCrunch Feed", "type": "main", "index": 0 },
+        { "node": "DevTo Feed", "type": "main", "index": 0 }
+      ]]
+    },
+    "HN Feed":         { "main": [[{ "node": "Merge RSS", "type": "main", "index": 0 }]] },
+    "TechCrunch Feed": { "main": [[{ "node": "Merge RSS", "type": "main", "index": 1 }]] },
+    "DevTo Feed":      { "main": [[{ "node": "Merge RSS", "type": "main", "index": 2 }]] },
+    "Merge RSS":       { "main": [[{ "node": "Flatten News", "type": "main", "index": 0 }]] },
+    "Flatten News":    { "main": [[{ "node": "Select Topics", "type": "main", "index": 0 }]] },
+    "Select Topics":   { "main": [[{ "node": "Parse Topics", "type": "main", "index": 0 }]] },
+    "Parse Topics":    { "main": [[{ "node": "Send Approval Message", "type": "main", "index": 0 }]] },
+    "Send Approval Message": { "main": [[{ "node": "Store Resume URL", "type": "main", "index": 0 }]] },
+    "Store Resume URL": { "main": [[{ "node": "Wait for Approval", "type": "main", "index": 0 }]] },
+    "Wait for Approval": { "main": [[{ "node": "Skipped?", "type": "main", "index": 0 }]] },
+    "Skipped?": {
+      "main": [
+        [{ "node": "Notify Skip", "type": "main", "index": 0 }],
+        [{ "node": "Write Article", "type": "main", "index": 0 }]
+      ]
+    },
+    "Write Article":    { "main": [[{ "node": "Extract Metadata", "type": "main", "index": 0 }]] },
+    "Extract Metadata": { "main": [[{ "node": "Assemble Markdown", "type": "main", "index": 0 }]] },
+    "Assemble Markdown": { "main": [[{ "node": "Base64 Encode", "type": "main", "index": 0 }]] },
+    "Base64 Encode":    { "main": [[{ "node": "Commit to GitHub", "type": "main", "index": 0 }]] },
+    "Commit to GitHub": { "main": [[{ "node": "Notify Success", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null
+}
