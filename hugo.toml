@@ -32,7 +32,10 @@ buildFuture = false
 
 [[params.socialIcons]]
   name = "linkedin"
-  url = "https://linkedin.com/company/techvia"
+  url = "https://linkedin.com/company/techvia-software"
+[[params.socialIcons]]
+  name = "email"
+  url = "mailto:info@techvia.software"
 
 [taxonomies]
   category = "categories"
