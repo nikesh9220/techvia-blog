@@ -32,10 +32,7 @@ buildFuture = false
 
 [[params.socialIcons]]
   name = "linkedin"
-  url = "https://linkedin.com/in/nikeshpandya"
-[[params.socialIcons]]
-  name = "github"
-  url = "https://github.com/nikeshpandya"
+  url = "https://linkedin.com/company/techvia"
 
 [taxonomies]
   category = "categories"
