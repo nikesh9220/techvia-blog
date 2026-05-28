@@ -26,6 +26,13 @@ buildFuture = false
   ShowRssButtonInSectionTermList = true
   disableThemeToggle = false
 
+  [params.assets]
+    favicon = "/favicon.ico"
+    favicon16x16 = "/favicon.ico"
+    favicon32x32 = "/favicon.ico"
+    apple_touch_icon = "/favicon.svg"
+    safari_pinned_tab = "/favicon.svg"
+
   [params.homeInfoParams]
     Title = "Techvia Blog"
     Content = "Practical insights on Web Development, Cloud Solutions, Mobile Development, and IT Consulting — from the team at Techvia. We help businesses transform through innovative, scalable technology."
