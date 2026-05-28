@@ -73,13 +73,13 @@
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
         "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: 'You are a content strategist for Techvia — a tech company offering Web Development, Cloud Solutions, Mobile Development, and IT Consulting.' }, { role: 'user', content: 'Based on these news items, pick the 3 most relevant trending topics for a Techvia blog post. Return ONLY a JSON array: [{\"title\": \"...\", \"angle\": \"one sentence hook\", \"pillar\": \"service category\"}]. News: ' + JSON.stringify($json.news.slice(0,8).map(n => n.title + ': ' + n.snippet)) }], max_tokens: 500 }) }}",
         "options": {}
       },
-      "credentials": { "httpHeaderAuth": { "id": "OPENROUTER_CRED_ID", "name": "OpenRouter" } }
+      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
     },
     {
       "id": "node-parse",
@@ -119,7 +119,7 @@
           }
         }
       },
-      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
     },
     {
       "id": "node-store-resume",
@@ -169,7 +169,7 @@
         "text": "⏭ Skipped today's blog post.",
         "additionalFields": {}
       },
-      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
     },
     {
       "id": "node-writer",
@@ -181,13 +181,13 @@
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
         "body": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4-5', messages: [{ role: 'system', content: 'You are a senior tech writer for Techvia (techvia.software — Web Dev, Cloud, Mobile, IT Consulting). Write complete SEO-optimised Hugo blog posts in markdown. Use H2/H3 headings, include code examples where relevant, 800-1200 words, end with a CTA paragraph linking to https://techvia.software.' }, { role: 'user', content: 'Write a full blog post about: ' + $json.topic_title + '. Angle: ' + $json.topic_angle }], max_tokens: 2500 }) }}",
         "options": {}
       },
-      "credentials": { "httpHeaderAuth": { "id": "OPENROUTER_CRED_ID", "name": "OpenRouter" } }
+      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
     },
     {
       "id": "node-metadata",
@@ -199,12 +199,12 @@
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
         "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'user', content: 'Extract metadata from this blog post. Return ONLY JSON: {\"slug\": \"kebab-case-no-date\", \"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Web Development|Cloud Solutions|Mobile Development|IT Consulting|SaaS Development|AI Development\"}. Post: ' + $json.choices[0].message.content.substring(0, 1500) }], max_tokens: 300 }) }}"
       },
-      "credentials": { "httpHeaderAuth": { "id": "OPENROUTER_CRED_ID", "name": "OpenRouter" } }
+      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
     },
     {
       "id": "node-assembler",
@@ -236,7 +236,7 @@
         "method": "PUT",
         "url": "=https://api.github.com/repos/nikesh9220/techvia-blog/contents/content/posts/{{ $json.filename }}",
         "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpHeaderAuth",
+        "nodeCredentialType": "openRouterApi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -249,7 +249,7 @@
         "body": "={{ JSON.stringify({ message: 'feat: auto-publish \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}",
         "options": {}
       },
-      "credentials": { "httpHeaderAuth": { "id": "GITHUB_CRED_ID", "name": "GitHub PAT" } }
+      "credentials": { "httpHeaderAuth": { "id": "WpSYxNEHvb4nvnGh", "name": "GitHub PAT" } }
     },
     {
       "id": "node-tg-success",
@@ -264,7 +264,7 @@
         "text": "=✅ <b>Published!</b>\\n\\n📝 {{ $('Assemble Markdown').item.json.title }}\\n🔗 https://blogs.techvia.software/posts/{{ $('Assemble Markdown').item.json.slug }}/\\n\\nCloudflare is deploying (~30 sec) 🚀",
         "additionalFields": { "parse_mode": "HTML" }
       },
-      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
     }
   ],
   "connections": {

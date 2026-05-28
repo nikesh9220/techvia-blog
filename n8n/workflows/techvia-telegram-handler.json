@@ -10,7 +10,7 @@
       "parameters": {
         "updates": ["callback_query"]
       },
-      "credentials": { "telegramApi": { "id": "TELEGRAM_CRED_ID", "name": "Telegram Bot" } }
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
     },
     {
       "id": "node-extract",
