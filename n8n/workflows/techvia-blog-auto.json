@@ -62,7 +62,8 @@
       "typeVersion": 1.4,
       "position": [1100, 300],
       "parameters": {
-        "prompt": "=You are a content strategist for Techvia — a tech company offering Web Development, Cloud Solutions, Mobile Development, and IT Consulting.\n\nBased on these trending news items, pick ONE best topic for a Techvia blog post today. Return ONLY valid JSON (no markdown, no backticks):\n{\"title\": \"Blog post title\", \"angle\": \"one sentence hook for the reader\", \"pillar\": \"Web Development|Cloud Solutions|Mobile Development|IT Consulting|SaaS Development|AI Development\"}\n\nNews:\n{{ $json.newsText }}"
+        "promptType": "define",
+        "text": "=You are a content strategist for Techvia — a tech company offering Web Development, Cloud Solutions, Mobile Development, and IT Consulting.\n\nBased on these trending news items, pick ONE best topic for a Techvia blog post today. Return ONLY valid JSON (no markdown, no backticks):\n{\"title\": \"Blog post title\", \"angle\": \"one sentence hook for the reader\", \"pillar\": \"Web Development|Cloud Solutions|Mobile Development|IT Consulting|SaaS Development|AI Development\"}\n\nNews:\n{{ $json.newsText }}"
       }
     },
     {
@@ -94,7 +95,8 @@
       "typeVersion": 1.4,
       "position": [1500, 300],
       "parameters": {
-        "prompt": "=You are a senior tech writer for Techvia (techvia.software — Web Dev, Cloud, Mobile, IT Consulting).\n\nWrite a complete, SEO-optimised Hugo blog post in markdown about:\nTitle: {{ $json.title }}\nAngle: {{ $json.angle }}\nService pillar: {{ $json.pillar }}\n\nRequirements:\n- 900-1200 words\n- Use ## and ### headings\n- Include practical code examples where relevant\n- Conversational but authoritative tone\n- End with a short CTA paragraph encouraging readers to visit https://techvia.software\n\nReturn ONLY the markdown body (no frontmatter)."
+        "promptType": "define",
+        "text": "=You are a senior tech writer for Techvia (techvia.software — Web Dev, Cloud, Mobile, IT Consulting).\n\nWrite a complete, SEO-optimised Hugo blog post in markdown about:\nTitle: {{ $json.title }}\nAngle: {{ $json.angle }}\nService pillar: {{ $json.pillar }}\n\nRequirements:\n- 900-1200 words\n- Use ## and ### headings\n- Include practical code examples where relevant\n- Conversational but authoritative tone\n- End with a short CTA paragraph encouraging readers to visit https://techvia.software\n\nReturn ONLY the markdown body (no frontmatter)."
       }
     },
     {
