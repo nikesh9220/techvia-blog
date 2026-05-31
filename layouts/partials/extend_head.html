@@ -1,0 +1,6 @@
+{{- /* Cloudflare Web Analytics — loaded only in production builds */ -}}
+{{- if eq (.Site.Params.env | default hugo.Environment) "production" }}
+<!-- Cloudflare Web Analytics -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "9bdfb265b53d4950b8784933112bb3b4"}'></script>
+<!-- End Cloudflare Web Analytics -->
+{{- end }}
