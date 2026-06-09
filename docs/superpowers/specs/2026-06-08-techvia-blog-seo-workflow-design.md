@@ -75,11 +75,11 @@ Writer prompt enforces a human voice:
   - Bucket: `techvia-blog-images`
   - Object key: `blog/{YYYY-MM-DD}-{slug}.png`, `Content-Type: image/png`.
   - Auth: AWS SigV4 with R2 Access Key / Secret (n8n S3/credential or signed HTTP node).
-- **Reference in frontmatter:** `cover.image = https://<R2_PUBLIC_URL>/blog/{date}-{slug}.png`,
+- **Reference in frontmatter:** `cover.image = https://pub-c642e0958d1943cda1efc53d0e9bb68d.r2.dev/blog/{date}-{slug}.png`,
   `cover.relative: false`.
-- **Setup prerequisite:** the bucket's **Public Development URL** (`https://pub-<hash>.r2.dev`) or a
-  bound custom domain must be enabled; the `…r2.cloudflarestorage.com` S3 endpoint is auth-only and
-  cannot serve public images. This public hostname is the one missing value at design time.
+- **Public URL (confirmed):** `https://pub-c642e0958d1943cda1efc53d0e9bb68d.r2.dev` (R2 bucket Public
+  Development URL). The `…r2.cloudflarestorage.com` S3 endpoint is auth-only and used for **upload**;
+  the `pub-….r2.dev` URL is used for **serving** the image in `cover.image`.
 
 ## 6. Postgres (local) — dedup + full tracking
 
