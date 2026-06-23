@@ -1,0 +1,348 @@
+{
+  "name": "techvia-blog-tms",
+  "nodes": [
+    {
+      "id": "node-schedule",
+      "name": "Daily 7AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 400],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }]
+        }
+      }
+    },
+    {
+      "id": "node-context",
+      "name": "Build TMS Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400],
+      "parameters": {
+        "jsCode": "const seeds = [\n  'Best TMS for small trucking companies',\n  'Broker dispatch workflow',\n  'EDI 204 explained',\n  'How freight brokers automate dispatch'\n];\nconst system = 'You are a freight-tech content strategist for Techvia TMS, a transportation management system for small-to-medium US freight brokers and carriers. You produce commercial, buyer-intent blog topics: the exact questions a broker, dispatcher, or carrier types into Google when they have a problem a TMS solves.';\nconst user = \"Generate 5 buyer-intent blog topics for freight brokers and carriers that naturally lead the reader toward adopting a TMS. Use long-tail commercial angles (best X for Y, X vs Y, cost of, how to, checklist, '... explained'). Prioritise variations of these seed topics, then expand with fresh siblings: \" + JSON.stringify(seeds) + \". Return ONLY a JSON array: [{\\\"title\\\":\\\"...\\\",\\\"angle\\\":\\\"one-sentence hook\\\"}]. No prose, no markdown fences.\";\nreturn [{ json: { system, user, seeds } }];"
+      }
+    },
+    {
+      "id": "node-candidates",
+      "name": "Generate Candidates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 600 }) }}",
+        "options": {}
+      },
+      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
+    },
+    {
+      "id": "node-parse",
+      "name": "Parse Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 400],
+      "parameters": {
+        "jsCode": "const raw = $json.choices[0].message.content;\nconst arr = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\nconst stop = new Set(['the','a','an','for','to','of','in','on','and','or','how','what','is','are','your','with','vs','from']);\nfunction slugify(t) {\n  return (t || '').toLowerCase().replace(/[^a-z0-9\\s-]/g, '').split(/\\s+/).filter(w => w && !stop.has(w)).join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');\n}\nconst candidates = arr.slice(0, 5).map(c => ({ title: c.title, angle: c.angle, slug: slugify(c.title) })).filter(c => c.slug);\nreturn [{ json: { candidates } }];"
+      }
+    },
+    {
+      "id": "node-pg-check",
+      "name": "Check Recent Slugs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1050, 400],
+      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT slug FROM published_topics WHERE published_at > now() - interval '3 months';",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_TECHVIA", "name": "Postgres - techvia" } }
+    },
+    {
+      "id": "node-filter",
+      "name": "Filter Fresh",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 400],
+      "parameters": {
+        "jsCode": "const candidates = $('Parse Candidates').first().json.candidates || [];\nconst recent = new Set($input.all().map(i => i.json.slug).filter(Boolean));\nconst fresh = candidates.filter(c => !recent.has(c.slug)).slice(0, 3);\nconst topicsText = fresh.map((t, i) => `${i + 1}. <b>${t.title}</b>\\n   ${t.angle}`).join('\\n\\n');\nreturn [{ json: { fresh, hasFresh: fresh.length > 0, topicsText } }];"
+      }
+    },
+    {
+      "id": "node-has-fresh",
+      "name": "Has Fresh?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1450, 400],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "fresh-check", "leftValue": "={{ $json.hasFresh }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-tg-none",
+      "name": "Notify None Fresh",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1650, 600],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "🛑 No fresh TMS topics today — all candidates were published in the last 3 months. Skipped.",
+        "additionalFields": {}
+      },
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
+    },
+    {
+      "id": "node-tg-send",
+      "name": "Send Approval Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1650, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "=🚚 <b>Daily TMS Blog Topics — pick one:</b>\\n\\n{{ $json.topicsText }}\\n\\nTap 1, 2, or 3 — or SKIP.",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "replyMarkup": "inlineKeyboard",
+          "inlineKeyboard": {
+            "rows": [{
+              "row": {
+                "buttons": [
+                  { "text": "1️⃣", "callback_data": "topic_1" },
+                  { "text": "2️⃣", "callback_data": "topic_2" },
+                  { "text": "3️⃣", "callback_data": "topic_3" },
+                  { "text": "⏭ SKIP", "callback_data": "topic_skip" }
+                ]
+              }
+            }]
+          }
+        }
+      },
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
+    },
+    {
+      "id": "node-store-resume",
+      "name": "Store Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst messageId = $('Send Approval Message').item.json.result.message_id;\nstaticData[`resume_${messageId}`] = $execution.resumeUrl;\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "node-wait",
+      "name": "Wait for Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2050, 300],
+      "parameters": {
+        "resume": "webhook",
+        "options": { "webhookSuffix": "/approval" }
+      }
+    },
+    {
+      "id": "node-skipped",
+      "name": "Skipped?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2250, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [{ "id": "skip-check", "leftValue": "={{ $json.isSkip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-tg-skip",
+      "name": "Notify Skip",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2450, 150],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "⏭ Skipped today's TMS post.",
+        "additionalFields": {}
+      },
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
+    },
+    {
+      "id": "node-resolve",
+      "name": "Resolve Topic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 400],
+      "parameters": {
+        "jsCode": "const idx = Number.isInteger($json.topicNum) ? $json.topicNum : 0;\nconst fresh = $('Filter Fresh').first().json.fresh || [];\nconst t = fresh[idx] || fresh[0];\nif (!t) { throw new Error('No topic to resolve for index ' + idx); }\nconst writerSystem = 'You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\"we built Techvia TMS because...\", \"the dispatchers we talk to...\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \"in todays fast-paced world\", \"delve\", \"moreover\", \"furthermore\", \"in conclusion\", \"unlock the power\", \"ever-evolving\", \"landscape\", \"navigating the\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. Output ONLY the markdown body (no frontmatter).';\nconst writerUser = 'Write the post. Topic: ' + t.title + '. Angle: ' + t.angle + '.';\nreturn [{ json: { topic_title: t.title, topic_angle: t.angle, topic_slug: t.slug, writerSystem, writerUser } }];"
+      }
+    },
+    {
+      "id": "node-writer",
+      "name": "Write Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2650, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4-5', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}",
+        "options": {}
+      },
+      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
+    },
+    {
+      "id": "node-metadata",
+      "name": "Extract Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2850, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 250 }) }}",
+        "options": {}
+      },
+      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
+    },
+    {
+      "id": "node-assembler",
+      "name": "Assemble Markdown",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3050, 400],
+      "parameters": {
+        "jsCode": "const today = new Date().toISOString().split('T')[0];\nconst body = $('Write Article').item.json.choices[0].message.content;\nconst metaRaw = $json.choices[0].message.content;\nconst meta = JSON.parse(metaRaw.replace(/```json\\n?|```/g, '').trim());\nconst title = $('Resolve Topic').item.json.topic_title;\nconst slug = $('Resolve Topic').item.json.topic_slug;\nconst angle = $('Resolve Topic').item.json.topic_angle;\nconst desc = (meta.seo_description || '').substring(0, 150);\nconst tags = Array.isArray(meta.tags) ? meta.tags : [];\nconst category = meta.category || 'TMS';\nconst filename = `${today}-${slug}.md`;\nconst post_path = `content/posts/${filename}`;\nconst fm = `---\\ntitle: \"${title.replace(/\"/g, '\\\\\"')}\"\\ndate: ${today}\\ndraft: false\\ntags: ${JSON.stringify(tags)}\\ncategories: [\"${category}\"]\\ndescription: \"${desc.replace(/\"/g, '\\\\\"')}\"\\nshowToc: true\\n---\\n\\n`;\nconst esc = s => (s || '').replace(/'/g, \"''\");\nconst insertQuery = `INSERT INTO published_topics (slug,title,pillar,angle,seo_description,post_path) VALUES ('${esc(slug)}','${esc(title)}','TMS','${esc(angle)}','${esc(desc)}','${esc(post_path)}') ON CONFLICT (slug) DO NOTHING;`;\nreturn [{ json: { filename, markdown: fm + body, slug, title, post_path, insertQuery } }];"
+      }
+    },
+    {
+      "id": "node-b64",
+      "name": "Base64 Encode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3250, 400],
+      "parameters": {
+        "jsCode": "const encoded = Buffer.from($json.markdown).toString('base64');\nreturn [{ json: { ...$json, content_b64: encoded } }];"
+      }
+    },
+    {
+      "id": "node-github",
+      "name": "Commit to GitHub",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3450, 400],
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/nikesh9220/techvia-blog/contents/content/posts/{{ $json.filename }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github+json" },
+            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify({ message: 'feat: auto-publish TMS post \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}",
+        "options": {}
+      },
+      "credentials": { "httpHeaderAuth": { "id": "WpSYxNEHvb4nvnGh", "name": "GitHub PAT" } }
+    },
+    {
+      "id": "node-pg-insert",
+      "name": "Insert Published Topic",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3650, 400],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $('Assemble Markdown').item.json.insertQuery }}",
+        "options": {}
+      },
+      "credentials": { "postgres": { "id": "POSTGRES_TECHVIA", "name": "Postgres - techvia" } }
+    },
+    {
+      "id": "node-tg-success",
+      "name": "Notify Success",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3850, 400],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
+        "text": "=✅ <b>TMS post published!</b>\\n\\n📝 {{ $('Assemble Markdown').item.json.title }}\\n🔗 https://blogs.techvia.software/posts/{{ $('Assemble Markdown').item.json.slug }}/\\n➡️ CTA → /products/tms\\n\\nCloudflare is deploying (~30 sec) 🚀",
+        "additionalFields": { "parse_mode": "HTML" }
+      },
+      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
+    }
+  ],
+  "connections": {
+    "Daily 7AM": { "main": [[{ "node": "Build TMS Context", "type": "main", "index": 0 }]] },
+    "Build TMS Context": { "main": [[{ "node": "Generate Candidates", "type": "main", "index": 0 }]] },
+    "Generate Candidates": { "main": [[{ "node": "Parse Candidates", "type": "main", "index": 0 }]] },
+    "Parse Candidates": { "main": [[{ "node": "Check Recent Slugs", "type": "main", "index": 0 }]] },
+    "Check Recent Slugs": { "main": [[{ "node": "Filter Fresh", "type": "main", "index": 0 }]] },
+    "Filter Fresh": { "main": [[{ "node": "Has Fresh?", "type": "main", "index": 0 }]] },
+    "Has Fresh?": {
+      "main": [
+        [{ "node": "Send Approval Message", "type": "main", "index": 0 }],
+        [{ "node": "Notify None Fresh", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Approval Message": { "main": [[{ "node": "Store Resume URL", "type": "main", "index": 0 }]] },
+    "Store Resume URL": { "main": [[{ "node": "Wait for Approval", "type": "main", "index": 0 }]] },
+    "Wait for Approval": { "main": [[{ "node": "Skipped?", "type": "main", "index": 0 }]] },
+    "Skipped?": {
+      "main": [
+        [{ "node": "Notify Skip", "type": "main", "index": 0 }],
+        [{ "node": "Resolve Topic", "type": "main", "index": 0 }]
+      ]
+    },
+    "Resolve Topic": { "main": [[{ "node": "Write Article", "type": "main", "index": 0 }]] },
+    "Write Article": { "main": [[{ "node": "Extract Metadata", "type": "main", "index": 0 }]] },
+    "Extract Metadata": { "main": [[{ "node": "Assemble Markdown", "type": "main", "index": 0 }]] },
+    "Assemble Markdown": { "main": [[{ "node": "Base64 Encode", "type": "main", "index": 0 }]] },
+    "Base64 Encode": { "main": [[{ "node": "Commit to GitHub", "type": "main", "index": 0 }]] },
+    "Commit to GitHub": { "main": [[{ "node": "Insert Published Topic", "type": "main", "index": 0 }]] },
+    "Insert Published Topic": { "main": [[{ "node": "Notify Success", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [{ "name": "techvia-blog" }],
+  "triggerCount": 0
+}

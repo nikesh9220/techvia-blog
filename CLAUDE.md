@@ -36,6 +36,10 @@ showToc: true
 ## n8n Automation
 n8n commits articles directly to `content/posts/` on the master branch. Cloudflare auto-deploys on every push. Use the frontmatter above exactly.
 
+Workflows (`n8n/workflows/`):
+- `techvia-blog-pipeline.json` — general daily tech post (RSS → topic pick → Telegram approval → publish).
+- `techvia-blog-tms.json` — **daily TMS/freight SEO post**: LLM buyer-intent topics → Postgres dedup → Telegram approval → human-voice article with a CTA to `https://www.techvia.software/products/tms` → publish. Reuses the shared `techvia-telegram-handler.json` approval callback and the `published_topics` Postgres table. See `docs/superpowers/specs/2026-06-23-techvia-blog-tms-workflow-design.md`.
+
 ## Branding
 - **Font:** Inter (Google Fonts)
 - **Brand Blue:** `#2563EB` — links, logo, nav, tags
