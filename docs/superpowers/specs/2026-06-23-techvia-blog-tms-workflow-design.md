@@ -25,7 +25,7 @@ The existing `techvia-blog-pipeline.json` and `techvia-blog-auto.json` are **lef
 |---|---|
 | Relationship to existing workflows | **New parallel workflow**, others untouched |
 | Topic engine | **LLM-generated** buyer-intent TMS topics daily (seeded with priority keywords) |
-| Dedup | **Postgres** `published_topics`, 3-month window (reuse SEO-design table) |
+| Dedup | **Deferred to v2** — no database in v1 (Postgres connectivity pending); topics are LLM-generated fresh each run |
 | Approval | **Keep Telegram approval gate** — operator taps 1 / 2 / 3 / ⏭ Skip |
 | Cover images | **None in v1** (text-only); R2 covers deferred to v2 |
 | CTA target | `https://www.techvia.software/products/tms` |
@@ -37,11 +37,10 @@ The existing `techvia-blog-pipeline.json` and `techvia-blog-auto.json` are **lef
 Daily 7AM (cron 0 7 * * *)
   → Build TMS Context (code: freight pillars + buyer-intent framing + seed keywords)
   → LLM #1  Generate Candidates  (OpenRouter text model → JSON array of 5)
-  → Parse Candidates (code: parse JSON, deterministic slugs, build approval text)
-  → Postgres  Check Recent Slugs  (SELECT slug WHERE published_at > now() - interval '3 months')
-  → Filter Fresh (code: drop already-published, keep top 3 survivors)
-       ├─ none fresh → Telegram "all recent, skipped today" (stop)
-       └─ fresh found ↓
+  → Parse Candidates (code: parse JSON, deterministic slugs)
+  → Pick Top Topics (code: keep top 3 candidates, build approval text)
+       ├─ none → Telegram "no topics today" (stop)
+       └─ topics found ↓
   → Send Approval Message (Telegram: top 3 fresh, inline buttons 1/2/3/Skip)
   → Store Resume URL (staticData) → Wait for Approval (webhook resume)
   → Skipped?
@@ -80,8 +79,8 @@ load lifecycle from tender to cash, choosing a TMS — buyer's checklist.*
 
 - **Output:** JSON array of 5 ranked candidates, each `{ title, angle, slug }`.
 - `slug` deterministic (see §6) so the dedup key is stable across runs.
-- The 4 seed keywords are eligible candidates themselves on early runs; dedup then rotates
-  the workflow onto fresh long-tails over time.
+- The 4 seed keywords are eligible candidates themselves on early runs; the prompt pushes the
+  model toward fresh long-tail siblings on later runs. (v2 dedup, §6, will enforce this.)
 
 ## 5. Writer (LLM #2) — human freight voice + product funnel
 
@@ -100,79 +99,54 @@ SEO design):
   one closing CTA is the target.
 - Returns the article body in markdown (frontmatter is added later in Assemble).
 
-## 6. Postgres dedup + tracking
+## 6. Deduplication — deferred to v2
 
-Reuses the `published_topics` table from `2026-06-08-techvia-blog-seo-workflow-design.md`
-(host `localhost:5432`, db `techvia`, user `techvia`; password in n8n credential only). No
-schema change required — TMS posts share the table; global slug dedup also prevents collisions
-with the SEO workflow if/when it ships.
+**v1 ships without a database.** Topic novelty relies on the LLM generating fresh buyer-intent
+candidates each run; the operator's Telegram approval step is the safety net against an obvious
+repeat. `Parse Candidates` still produces a deterministic `topic_slug` (lowercase → strip
+punctuation → drop stopwords → hyphenate) which is used for both the filename and the chosen
+topic, so when Postgres dedup is added in v2 the key is already stable.
 
-```sql
-CREATE TABLE IF NOT EXISTS published_topics (
-  id              SERIAL PRIMARY KEY,
-  slug            TEXT UNIQUE NOT NULL,
-  title           TEXT NOT NULL,
-  pillar          TEXT,
-  angle           TEXT,
-  seo_description TEXT,
-  tags            TEXT[],
-  post_path       TEXT,
-  image_url       TEXT,
-  published_at    TIMESTAMPTZ DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_published_topics_published_at
-  ON published_topics (published_at);
-```
-
-- For TMS posts, `pillar` is set to `"TMS"` so the vertical is queryable later.
-- **Slug normalization (deterministic):** lowercase → strip punctuation → remove stopwords →
-  collapse whitespace → hyphenate. Same function for candidate slugs and the dedup key.
-- **Dedup window:** 3 months. **Single-round (v1):** if no fresh candidate survives →
-  Telegram "skipped, all candidates recent", no commit. (A two-round regenerate-and-retry is
-  deferred to v2 — the 5-candidate × 3-month window rarely exhausts.)
-- **Insert timing:** AFTER successful GitHub commit, `ON CONFLICT (slug) DO NOTHING`.
-- **Committed slug == dedup slug:** the deterministic `topic_slug` chosen at approval is used
-  for both the filename and the Postgres insert, so dedup never drifts from what was published.
-  The metadata LLM supplies only `seo_description`, `tags`, and `category` — never the slug.
+**v2 (when the Postgres credential connects):** reintroduce a `Check Recent Slugs` SELECT before
+approval and an `Insert Published Topic` after the GitHub commit, against the `published_topics`
+table from `2026-06-08-techvia-blog-seo-workflow-design.md` (3-month window, `ON CONFLICT (slug)
+DO NOTHING`). For Dockerised n8n the credential host is `host.docker.internal`, not `localhost`.
 
 ## 7. Metadata + frontmatter
 
-`Extract Metadata` (LLM) returns `{ slug, seo_description (<150 chars), tags[], category }`
-where `category` ∈ `Freight & Logistics | Dispatch | TMS | Trucking | Freight Tech`.
+`Extract Metadata` (LLM) returns `{ seo_description (<150 chars), tags[], category }`
+where `category` ∈ `Freight & Logistics | Dispatch | TMS | Trucking | Freight Tech`. The slug
+comes from `Resolve Topic` (deterministic), not from the metadata LLM.
 `Assemble Markdown` emits the exact Hugo frontmatter from the blog CLAUDE.md (title, date,
 draft:false, tags, categories, description, showToc:true) — **no `cover.image` in v1**.
 Filename: `content/posts/{YYYY-MM-DD}-{slug}.md`.
 
 ## 8. Error handling
 
-- **Postgres SELECT failure → block publish** (never risk a duplicate).
-- **Postgres INSERT failure → log + continue** (commit already happened; tracking best-effort).
 - **Malformed LLM JSON →** defensive `JSON.parse` in code nodes (strip ```` ```json ```` fences).
-- **No candidates after 2 rounds →** Telegram notice, clean stop, no commit.
-- **GitHub commit failure →** surfaces in execution log + Telegram error; no Postgres insert.
+- **No candidates →** `Has Fresh?` false branch → Telegram notice, clean stop, no commit.
+- **GitHub commit failure →** surfaces in execution log + Telegram error; no success notice.
 
 ## 9. Credentials required in n8n (all already exist)
 
 | Credential | n8n id (existing) | Use |
 |---|---|---|
-| OpenRouter | `DS7MeEgya97Jx9db` | LLM #1 / #1b / #2 / metadata |
-| GitHub PAT | `WpSYxNEHvb4nvnGh` | commit post |
+| OpenRouter | `DS7MeEgya97Jx9db` | candidates / writer / metadata |
+| GitHub PAT | `WpSYxNEHvb4nvnGh` | commit post (header auth) |
 | Telegram Bot | `QDbQhiQDyGyIbqse` | approval + notifications |
-| Postgres (local) | from SEO workflow | dedup + tracking |
 
 Workflow variables reused: `$vars.TELEGRAM_CHAT_ID`, `$vars.WRITING_MODEL`
-(default `anthropic/claude-sonnet-4-5`).
+(default `anthropic/claude-sonnet-4-5`). No database credential in v1.
 
 ## 10. Deliverables
 
 1. `n8n/workflows/techvia-blog-tms.json` — the new workflow (import into n8n).
-2. SQL note — reuse existing `published_topics` (no new table) — included in §6.
-3. One end-to-end test: topics arrive in Telegram → approve → post commits → appears on blog
-   with a working `/products/tms` CTA → row inserted → re-run does not repeat the topic.
+2. One end-to-end test: topics arrive in Telegram → approve → post commits → appears on blog
+   with a working `/products/tms` CTA.
 
 ## 11. Out of scope / YAGNI (v1)
 
+- No database / dedup (deferred to v2; see §6).
 - No cover images / R2 (deferred to v2; SEO design already specs the mechanism).
 - No edits to `techvia-blog-pipeline.json` or `techvia-blog-auto.json`.
 - No live keyword-API integration (LLM-generated buyer-intent topics only).
-- No new Postgres columns (reuse the existing table).
