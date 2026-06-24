@@ -20,7 +20,7 @@
       "typeVersion": 2,
       "position": [450, 400],
       "parameters": {
-        "jsCode": "const seeds = [\n  'Best TMS for small trucking companies',\n  'Broker dispatch workflow',\n  'EDI 204 explained',\n  'How freight brokers automate dispatch'\n];\nconst system = 'You are a freight-tech content strategist for Techvia TMS, a transportation management system for small-to-medium US freight brokers and carriers. You produce commercial, buyer-intent blog topics: the exact questions a broker, dispatcher, or carrier types into Google when they have a problem a TMS solves.';\nconst user = \"Generate 5 buyer-intent blog topics for freight brokers and carriers that naturally lead the reader toward adopting a TMS. Use long-tail commercial angles (best X for Y, X vs Y, cost of, how to, checklist, '... explained'). Prioritise variations of these seed topics, then expand with fresh siblings: \" + JSON.stringify(seeds) + \". Return ONLY a JSON array: [{\\\"title\\\":\\\"...\\\",\\\"angle\\\":\\\"one-sentence hook\\\"}]. No prose, no markdown fences.\";\nreturn [{ json: { system, user, seeds } }];"
+        "jsCode": "const seeds = [\n  'Best TMS for small trucking companies',\n  'Broker dispatch workflow',\n  'EDI 204 explained',\n  'How freight brokers automate dispatch'\n];\nconst system = 'You are a freight-tech SEO content strategist for Techvia TMS, a transportation management system for small-to-medium US freight brokers and carriers. You produce commercial, buyer-intent blog topics: the exact questions a broker, dispatcher, or carrier types into Google when they have a problem a TMS solves.';\nconst user = \"Generate 5 buyer-intent blog topics for freight brokers and carriers that naturally lead the reader toward adopting a TMS. Use long-tail commercial angles (best X for Y, X vs Y, cost of, how to, checklist, '... explained'). Cover variations of these seed topics and expand with fresh siblings: \" + JSON.stringify(seeds) + \". Then RANK them best-first by SEO opportunity: realistic organic search demand, strong commercial/buyer intent, and tight fit to Techvia TMS. Return ONLY a JSON array ordered best-first, no prose and no markdown fences: [{\\\"title\\\":\\\"...\\\",\\\"angle\\\":\\\"one-sentence hook\\\",\\\"seo_reason\\\":\\\"why this ranks\\\"}].\";\nreturn [{ json: { system, user, seeds } }];"
       }
     },
     {
@@ -37,7 +37,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 600 }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 700 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -49,136 +49,17 @@
       "typeVersion": 2,
       "position": [850, 400],
       "parameters": {
-        "jsCode": "const raw = $json.choices[0].message.content;\nconst arr = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\nconst stop = new Set(['the','a','an','for','to','of','in','on','and','or','how','what','is','are','your','with','vs','from']);\nfunction slugify(t) {\n  return (t || '').toLowerCase().replace(/[^a-z0-9\\s-]/g, '').split(/\\s+/).filter(w => w && !stop.has(w)).join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');\n}\nconst candidates = arr.slice(0, 5).map(c => ({ title: c.title, angle: c.angle, slug: slugify(c.title) })).filter(c => c.slug);\nreturn [{ json: { candidates } }];"
+        "jsCode": "const raw = $json.choices[0].message.content;\nconst arr = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\nconst stop = new Set(['the','a','an','for','to','of','in','on','and','or','how','what','is','are','your','with','vs','from']);\nfunction slugify(t) {\n  return (t || '').toLowerCase().replace(/[^a-z0-9\\s-]/g, '').split(/\\s+/).filter(w => w && !stop.has(w)).join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');\n}\nconst candidates = arr.map(c => ({ title: c.title, angle: c.angle, seo_reason: c.seo_reason || '', slug: slugify(c.title) })).filter(c => c.slug);\nreturn [{ json: { candidates } }];"
       }
     },
     {
-      "id": "node-filter",
-      "name": "Pick Top Topics",
+      "id": "node-select",
+      "name": "Select Best Topic",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1050, 400],
       "parameters": {
-        "jsCode": "const candidates = $json.candidates || [];\nconst fresh = candidates.slice(0, 3);\nconst topicsText = fresh.map((t, i) => `${i + 1}. <b>${t.title}</b>\\n   ${t.angle}`).join('\\n\\n');\nreturn [{ json: { fresh, hasFresh: fresh.length > 0, topicsText } }];"
-      }
-    },
-    {
-      "id": "node-has-fresh",
-      "name": "Has Fresh?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [1450, 400],
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "id": "fresh-check", "leftValue": "={{ $json.hasFresh }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
-          "combinator": "and"
-        }
-      }
-    },
-    {
-      "id": "node-tg-none",
-      "name": "Notify None Fresh",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1650, 600],
-      "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
-        "text": "🛑 No fresh TMS topics today — all candidates were published in the last 3 months. Skipped.",
-        "additionalFields": {}
-      },
-      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
-    },
-    {
-      "id": "node-tg-send",
-      "name": "Send Approval Message",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [1650, 300],
-      "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
-        "text": "=🚚 <b>Daily TMS Blog Topics — pick one:</b>\\n\\n{{ $json.topicsText }}\\n\\nTap 1, 2, or 3 — or SKIP.",
-        "additionalFields": {
-          "parse_mode": "HTML",
-          "replyMarkup": "inlineKeyboard",
-          "inlineKeyboard": {
-            "rows": [{
-              "row": {
-                "buttons": [
-                  { "text": "1️⃣", "callback_data": "topic_1" },
-                  { "text": "2️⃣", "callback_data": "topic_2" },
-                  { "text": "3️⃣", "callback_data": "topic_3" },
-                  { "text": "⏭ SKIP", "callback_data": "topic_skip" }
-                ]
-              }
-            }]
-          }
-        }
-      },
-      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
-    },
-    {
-      "id": "node-store-resume",
-      "name": "Store Resume URL",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1850, 300],
-      "parameters": {
-        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst messageId = $('Send Approval Message').item.json.result.message_id;\nstaticData[`resume_${messageId}`] = $execution.resumeUrl;\nreturn $input.all();"
-      }
-    },
-    {
-      "id": "node-wait",
-      "name": "Wait for Approval",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [2050, 300],
-      "parameters": {
-        "resume": "webhook",
-        "options": { "webhookSuffix": "/approval" }
-      }
-    },
-    {
-      "id": "node-skipped",
-      "name": "Skipped?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [2250, 300],
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [{ "id": "skip-check", "leftValue": "={{ $json.isSkip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }],
-          "combinator": "and"
-        }
-      }
-    },
-    {
-      "id": "node-tg-skip",
-      "name": "Notify Skip",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [2450, 150],
-      "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
-        "text": "⏭ Skipped today's TMS post.",
-        "additionalFields": {}
-      },
-      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
-    },
-    {
-      "id": "node-resolve",
-      "name": "Resolve Topic",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2450, 400],
-      "parameters": {
-        "jsCode": "const idx = Number.isInteger($json.topicNum) ? $json.topicNum : 0;\nconst fresh = $('Pick Top Topics').first().json.fresh || [];\nconst t = fresh[idx] || fresh[0];\nif (!t) { throw new Error('No topic to resolve for index ' + idx); }\nconst writerSystem = 'You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\"we built Techvia TMS because...\", \"the dispatchers we talk to...\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \"in todays fast-paced world\", \"delve\", \"moreover\", \"furthermore\", \"in conclusion\", \"unlock the power\", \"ever-evolving\", \"landscape\", \"navigating the\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. Output ONLY the markdown body (no frontmatter).';\nconst writerUser = 'Write the post. Topic: ' + t.title + '. Angle: ' + t.angle + '.';\nreturn [{ json: { topic_title: t.title, topic_angle: t.angle, topic_slug: t.slug, writerSystem, writerUser } }];"
+        "jsCode": "const candidates = $json.candidates || [];\nconst t = candidates[0];\nif (!t) { throw new Error('No topic candidates were generated'); }\nconst writerSystem = 'You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\"we built Techvia TMS because...\", \"the dispatchers we talk to...\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \"in todays fast-paced world\", \"delve\", \"moreover\", \"furthermore\", \"in conclusion\", \"unlock the power\", \"ever-evolving\", \"landscape\", \"navigating the\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. Output ONLY the markdown body (no frontmatter).';\nconst writerUser = 'Write the post. Topic: ' + t.title + '. Angle: ' + t.angle + '.';\nreturn [{ json: { topic_title: t.title, topic_angle: t.angle, topic_slug: t.slug, seo_reason: t.seo_reason, writerSystem, writerUser } }];"
       }
     },
     {
@@ -186,7 +67,7 @@
       "name": "Write Article",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2650, 400],
+      "position": [1250, 400],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -195,7 +76,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4-5', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -205,7 +86,7 @@
       "name": "Extract Metadata",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2850, 400],
+      "position": [1450, 400],
       "parameters": {
         "method": "POST",
         "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -224,9 +105,9 @@
       "name": "Assemble Markdown",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3050, 400],
+      "position": [1650, 400],
       "parameters": {
-        "jsCode": "const today = new Date().toISOString().split('T')[0];\nconst body = $('Write Article').item.json.choices[0].message.content;\nconst metaRaw = $json.choices[0].message.content;\nconst meta = JSON.parse(metaRaw.replace(/```json\\n?|```/g, '').trim());\nconst title = $('Resolve Topic').item.json.topic_title;\nconst slug = $('Resolve Topic').item.json.topic_slug;\nconst angle = $('Resolve Topic').item.json.topic_angle;\nconst desc = (meta.seo_description || '').substring(0, 150);\nconst tags = Array.isArray(meta.tags) ? meta.tags : [];\nconst category = meta.category || 'TMS';\nconst filename = `${today}-${slug}.md`;\nconst post_path = `content/posts/${filename}`;\nconst fm = `---\\ntitle: \"${title.replace(/\"/g, '\\\\\"')}\"\\ndate: ${today}\\ndraft: false\\ntags: ${JSON.stringify(tags)}\\ncategories: [\"${category}\"]\\ndescription: \"${desc.replace(/\"/g, '\\\\\"')}\"\\nshowToc: true\\n---\\n\\n`;\nreturn [{ json: { filename, markdown: fm + body, slug, title, post_path } }];"
+        "jsCode": "const today = new Date().toISOString().split('T')[0];\nconst body = $('Write Article').item.json.choices[0].message.content;\nconst metaRaw = $json.choices[0].message.content;\nconst meta = JSON.parse(metaRaw.replace(/```json\\n?|```/g, '').trim());\nconst title = $('Select Best Topic').item.json.topic_title;\nconst slug = $('Select Best Topic').item.json.topic_slug;\nconst desc = (meta.seo_description || '').substring(0, 150);\nconst tags = Array.isArray(meta.tags) ? meta.tags : [];\nconst category = meta.category || 'TMS';\nconst filename = `${today}-${slug}.md`;\nconst post_path = `content/posts/${filename}`;\nconst fm = `---\\ntitle: \"${title.replace(/\"/g, '\\\\\"')}\"\\ndate: ${today}\\ndraft: false\\ntags: ${JSON.stringify(tags)}\\ncategories: [\"${category}\"]\\ndescription: \"${desc.replace(/\"/g, '\\\\\"')}\"\\nshowToc: true\\n---\\n\\n`;\nreturn [{ json: { filename, markdown: fm + body, slug, title, post_path } }];"
       }
     },
     {
@@ -234,7 +115,7 @@
       "name": "Base64 Encode",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3250, 400],
+      "position": [1850, 400],
       "parameters": {
         "jsCode": "const encoded = Buffer.from($json.markdown).toString('base64');\nreturn [{ json: { ...$json, content_b64: encoded } }];"
       }
@@ -244,7 +125,7 @@
       "name": "Commit to GitHub",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3450, 400],
+      "position": [2050, 400],
       "parameters": {
         "method": "PUT",
         "url": "=https://api.github.com/repos/nikesh9220/techvia-blog/contents/content/posts/{{ $json.filename }}",
@@ -270,7 +151,7 @@
       "name": "Notify Success",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [3850, 400],
+      "position": [2250, 400],
       "parameters": {
         "resource": "message",
         "operation": "sendMessage",
@@ -285,24 +166,8 @@
     "Daily 7AM": { "main": [[{ "node": "Build TMS Context", "type": "main", "index": 0 }]] },
     "Build TMS Context": { "main": [[{ "node": "Generate Candidates", "type": "main", "index": 0 }]] },
     "Generate Candidates": { "main": [[{ "node": "Parse Candidates", "type": "main", "index": 0 }]] },
-    "Parse Candidates": { "main": [[{ "node": "Pick Top Topics", "type": "main", "index": 0 }]] },
-    "Pick Top Topics": { "main": [[{ "node": "Has Fresh?", "type": "main", "index": 0 }]] },
-    "Has Fresh?": {
-      "main": [
-        [{ "node": "Send Approval Message", "type": "main", "index": 0 }],
-        [{ "node": "Notify None Fresh", "type": "main", "index": 0 }]
-      ]
-    },
-    "Send Approval Message": { "main": [[{ "node": "Store Resume URL", "type": "main", "index": 0 }]] },
-    "Store Resume URL": { "main": [[{ "node": "Wait for Approval", "type": "main", "index": 0 }]] },
-    "Wait for Approval": { "main": [[{ "node": "Skipped?", "type": "main", "index": 0 }]] },
-    "Skipped?": {
-      "main": [
-        [{ "node": "Notify Skip", "type": "main", "index": 0 }],
-        [{ "node": "Resolve Topic", "type": "main", "index": 0 }]
-      ]
-    },
-    "Resolve Topic": { "main": [[{ "node": "Write Article", "type": "main", "index": 0 }]] },
+    "Parse Candidates": { "main": [[{ "node": "Select Best Topic", "type": "main", "index": 0 }]] },
+    "Select Best Topic": { "main": [[{ "node": "Write Article", "type": "main", "index": 0 }]] },
     "Write Article": { "main": [[{ "node": "Extract Metadata", "type": "main", "index": 0 }]] },
     "Extract Metadata": { "main": [[{ "node": "Assemble Markdown", "type": "main", "index": 0 }]] },
     "Assemble Markdown": { "main": [[{ "node": "Base64 Encode", "type": "main", "index": 0 }]] },

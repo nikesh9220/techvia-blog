@@ -13,9 +13,9 @@
 Add a **new, parallel** daily workflow that publishes **freight/TMS buyer-intent SEO articles**
 to the Hugo blog and funnels readers to the Techvia TMS product page
 (`https://www.techvia.software/products/tms`). It clones the structure of the existing
-`techvia-blog-pipeline.json` ("techvia-daily-blog") — including the Telegram approval gate —
-but replaces the trend/RSS topic brain with an LLM freight-topic generator, adds Postgres
-dedup, and rewrites the author voice for freight operations.
+`techvia-blog-pipeline.json` ("techvia-daily-blog") but replaces the trend/RSS topic brain with
+an LLM freight-topic generator that ranks and auto-selects by SEO, and rewrites the author voice
+for freight operations. It runs **fully autonomously** (no human approval) — see §2.
 
 The existing `techvia-blog-pipeline.json` and `techvia-blog-auto.json` are **left untouched**.
 
@@ -26,7 +26,8 @@ The existing `techvia-blog-pipeline.json` and `techvia-blog-auto.json` are **lef
 | Relationship to existing workflows | **New parallel workflow**, others untouched |
 | Topic engine | **LLM-generated** buyer-intent TMS topics daily (seeded with priority keywords) |
 | Dedup | **Deferred to v2** — no database in v1 (Postgres connectivity pending); topics are LLM-generated fresh each run |
-| Approval | **Keep Telegram approval gate** — operator taps 1 / 2 / 3 / ⏭ Skip |
+| Approval | **Autonomous** — AI ranks candidates by SEO and auto-picks the best. Telegram approval removed: the inbound callback/webhook resume can't work while n8n runs in **local Docker**. Re-add the gate once n8n is on a server. |
+| Writer model | `$vars.WRITING_MODEL` default **`anthropic/claude-sonnet-4`** (via OpenRouter) |
 | Cover images | **None in v1** (text-only); R2 covers deferred to v2 |
 | CTA target | `https://www.techvia.software/products/tms` |
 | Cadence | Daily, 07:00 UTC (staggered after the 06:00 general publisher) |
@@ -35,28 +36,23 @@ The existing `techvia-blog-pipeline.json` and `techvia-blog-auto.json` are **lef
 
 ```
 Daily 7AM (cron 0 7 * * *)
-  → Build TMS Context (code: freight pillars + buyer-intent framing + seed keywords)
-  → LLM #1  Generate Candidates  (OpenRouter text model → JSON array of 5)
-  → Parse Candidates (code: parse JSON, deterministic slugs)
-  → Pick Top Topics (code: keep top 3 candidates, build approval text)
-       ├─ none → Telegram "no topics today" (stop)
-       └─ topics found ↓
-  → Send Approval Message (Telegram: top 3 fresh, inline buttons 1/2/3/Skip)
-  → Store Resume URL (staticData) → Wait for Approval (webhook resume)
-  → Skipped?
-       ├─ true  → Notify Skip (Telegram) (stop)
-       └─ false ↓ (operator picked a topic; topic_title/topic_angle/topic_slug resolved)
+  → Build TMS Context (code: freight framing + seed keywords)
+  → LLM #1  Generate Candidates  (OpenRouter → JSON array of 5, RANKED best-first by SEO)
+  → Parse Candidates (code: parse JSON, deterministic slugs, preserve rank order)
+  → Select Best Topic (code: auto-pick candidate[0]; build writer prompt; throw if none)
   → LLM #2  Write Article  (freight expert, human voice, CTA → /products/tms)
-  → Extract Metadata (LLM → JSON: slug, seo_description, tags, category)
+  → Extract Metadata (LLM → JSON: seo_description, tags, category)
   → Assemble Markdown (code: Hugo frontmatter + body; filename {date}-{slug}.md)
   → Base64 Encode → Commit to GitHub (content/posts/{date}-{slug}.md, branch master)
-  → Postgres Insert published_topics (ON CONFLICT (slug) DO NOTHING)
   → Notify Success (Telegram: title + live URL)
 ```
 
-The approval-callback plumbing (inline button → webhook resume with `isSkip` /
-`topic_title` / `topic_angle` / `topic_slug`) is handled by the existing
-`techvia-telegram-handler.json`, exactly as for the current pipeline.
+**Autonomous, no human gate.** The AI ranks its 5 candidates best-first on SEO opportunity and
+the workflow auto-selects #1 — there is no Telegram approval step, because the inbound callback
+resume cannot reach n8n while it runs in local Docker. `Notify Success` is a plain outbound
+`sendMessage` (works fine from Docker). When n8n moves to a server, the
+`Send Approval → Wait → Skipped?` gate (and the shared `techvia-telegram-handler.json`) can be
+reinserted before `Write Article`.
 
 ## 4. Topic engine (LLM #1) — buyer-intent freight/TMS
 
@@ -102,8 +98,8 @@ SEO design):
 ## 6. Deduplication — deferred to v2
 
 **v1 ships without a database.** Topic novelty relies on the LLM generating fresh buyer-intent
-candidates each run; the operator's Telegram approval step is the safety net against an obvious
-repeat. `Parse Candidates` still produces a deterministic `topic_slug` (lowercase → strip
+candidates each run, ranked best-first on SEO; with no human gate, novelty rests on that
+ranking plus the breadth of the freight keyword space. `Parse Candidates` still produces a deterministic `topic_slug` (lowercase → strip
 punctuation → drop stopwords → hyphenate) which is used for both the filename and the chosen
 topic, so when Postgres dedup is added in v2 the key is already stable.
 
@@ -133,16 +129,16 @@ Filename: `content/posts/{YYYY-MM-DD}-{slug}.md`.
 |---|---|---|
 | OpenRouter | `DS7MeEgya97Jx9db` | candidates / writer / metadata |
 | GitHub PAT | `WpSYxNEHvb4nvnGh` | commit post (header auth) |
-| Telegram Bot | `QDbQhiQDyGyIbqse` | approval + notifications |
+| Telegram Bot | `QDbQhiQDyGyIbqse` | success notification (outbound only) |
 
 Workflow variables reused: `$vars.TELEGRAM_CHAT_ID`, `$vars.WRITING_MODEL`
-(default `anthropic/claude-sonnet-4-5`). No database credential in v1.
+(default `anthropic/claude-sonnet-4`). No database credential in v1.
 
 ## 10. Deliverables
 
 1. `n8n/workflows/techvia-blog-tms.json` — the new workflow (import into n8n).
-2. One end-to-end test: topics arrive in Telegram → approve → post commits → appears on blog
-   with a working `/products/tms` CTA.
+2. One end-to-end test: trigger manually → AI picks top SEO topic → post commits → appears on
+   blog with a working `/products/tms` CTA → Telegram success notice arrives.
 
 ## 11. Out of scope / YAGNI (v1)
 

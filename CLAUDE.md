@@ -38,7 +38,7 @@ n8n commits articles directly to `content/posts/` on the master branch. Cloudfla
 
 Workflows (`n8n/workflows/`):
 - `techvia-blog-pipeline.json` — general daily tech post (RSS → topic pick → Telegram approval → publish).
-- `techvia-blog-tms.json` — **daily TMS/freight SEO post**: LLM buyer-intent topics → Telegram approval → human-voice article with a CTA to `https://www.techvia.software/products/tms` → publish. Reuses the shared `techvia-telegram-handler.json` approval callback. v1 is database-free (Postgres dedup deferred to v2). See `docs/superpowers/specs/2026-06-23-techvia-blog-tms-workflow-design.md`.
+- `techvia-blog-tms.json` — **daily TMS/freight SEO post**, fully autonomous: LLM generates buyer-intent topics ranked by SEO → auto-picks the best → human-voice article (writer model default `anthropic/claude-sonnet-4`) with a CTA to `https://www.techvia.software/products/tms` → commit → Telegram success notice. v1 has no approval gate or database (both deferred until n8n moves off local Docker to a server). See `docs/superpowers/specs/2026-06-23-techvia-blog-tms-workflow-design.md`.
 
 ## Branding
 - **Font:** Inter (Google Fonts)
