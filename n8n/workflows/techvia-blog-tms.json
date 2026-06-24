@@ -36,7 +36,8 @@
         "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
-        "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 600 }) }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 600 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -193,7 +194,8 @@
         "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
-        "body": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4-5', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4-5', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -211,7 +213,8 @@
         "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
-        "body": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 250 }) }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 250 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -256,7 +259,8 @@
         },
         "sendBody": true,
         "contentType": "json",
-        "body": "={{ JSON.stringify({ message: 'feat: auto-publish TMS post \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: 'feat: auto-publish TMS post \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}",
         "options": {}
       },
       "credentials": { "httpHeaderAuth": { "id": "WpSYxNEHvb4nvnGh", "name": "GitHub PAT" } }
