@@ -1,5 +1,5 @@
 ---
-title: "Best TMS Software for Small Freight Brokers: 2024 Comparison Guide"
+title: "Best TMS Software for Small Freight Brokers: 2026 Comparison Guide"
 date: 2026-06-26
 draft: false
 tags: ["TMS","small freight broker","load management","freight tracking","invoicing"]
