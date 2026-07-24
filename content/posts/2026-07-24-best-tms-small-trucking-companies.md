@@ -10,7 +10,7 @@ showToc: true
 
 # Best TMS for Small Trucking Companies: An Honest Buyer's Guide
 
-When you're running 10 to 75 trucks, the TMS decision feels overwhelming. Every vendor promises to "revolutionize your operations" with feature lists longer than a Detroit to Los Angeles manifest. But after talking with hundreds of small carriers, we've learned what actually matters when you're managing drivers, dispatchers, and tight margins - not what sounds impressive in a sales demo.
+When you're running 10 to 75 trucks, the TMS decision feels overwhelming. Every vendor promises to "revolutionize your operations" with feature lists longer than a Detroit to Los Angeles manifest. But what actually matters when you're managing drivers, dispatchers, and tight margins is rarely what sounds impressive in a sales demo.
 
 ## What Small Carriers Actually Need From a TMS
 
@@ -22,7 +22,7 @@ The features that actually move the needle for small fleets often get buried in 
 
 ## The Hidden Costs That Kill Small Fleet Budgets
 
-Most TMS vendors use per-seat pricing models that sound reasonable until you do the math. Start with three dispatchers at $75 per seat, add your operations manager, throw in a part-time weekend dispatcher, and suddenly you're looking at $4,500 annually just for user access.
+Most TMS vendors use per-seat pricing models that sound reasonable until you do the math. Whatever per-seat rate you were quoted, multiply it out: three dispatchers, an operations manager, a part-time weekend dispatcher. The number in the proposal was for one seat. The number you pay is for five.
 
 The real trap comes when you want to grow. Hiring a new dispatcher shouldn't require a budget meeting about software costs. Adding a customer service rep to handle POD requests shouldn't double your TMS bill. Yet per-seat pricing forces exactly these conversations.
 
@@ -32,7 +32,7 @@ We see carriers stuck with systems they've outgrown because adding users would p
 
 Enterprise TMS vendors showcase impressive integration marketplaces with hundreds of partners. Small carriers get excited about connecting their fuel cards, ELDs, and accounting software - until they see the integration fees.
 
-Many integrations require additional monthly fees ranging from $50 to $200 per connection. Some demand setup fees that can hit four figures. Others work perfectly in the demo environment but break down when dealing with real-world data inconsistencies.
+Many integrations carry their own monthly fee per connection. Some add a separate setup charge on top. Others work perfectly in the demo environment but break down when dealing with real-world data inconsistencies.
 
 Before committing to any TMS, get specific costs for every integration you need. Ask about setup fees, ongoing monthly costs, and what happens when integrations break. The vendor that promises "seamless connectivity" might not mention that seamless costs extra.
 
