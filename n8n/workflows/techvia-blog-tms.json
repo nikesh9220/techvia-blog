@@ -1,15 +1,16 @@
 {
+  "id": "aaKdHwfUvclrp9Xt",
   "name": "techvia-blog-tms",
   "nodes": [
     {
       "id": "node-schedule",
-      "name": "Daily 7AM",
+      "name": "MWF 7AM UTC",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [250, 400],
       "parameters": {
         "rule": {
-          "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }]
+          "interval": [{ "field": "cronExpression", "expression": "0 7 * * 1,3,5" }]
         }
       }
     },
@@ -20,7 +21,7 @@
       "typeVersion": 2,
       "position": [450, 400],
       "parameters": {
-        "jsCode": "const seeds = [\n  'Best TMS for small trucking companies',\n  'Broker dispatch workflow',\n  'EDI 204 explained',\n  'How freight brokers automate dispatch'\n];\nconst system = 'You are a freight-tech SEO content strategist for Techvia TMS, a transportation management system for small-to-medium US freight brokers and carriers. You produce commercial, buyer-intent blog topics: the exact questions a broker, dispatcher, or carrier types into Google when they have a problem a TMS solves.';\nconst user = \"Generate 5 buyer-intent blog topics for freight brokers and carriers that naturally lead the reader toward adopting a TMS. Use long-tail commercial angles (best X for Y, X vs Y, cost of, how to, checklist, '... explained'). Cover variations of these seed topics and expand with fresh siblings: \" + JSON.stringify(seeds) + \". Then RANK them best-first by SEO opportunity: realistic organic search demand, strong commercial/buyer intent, and tight fit to Techvia TMS. Return ONLY a JSON array ordered best-first, no prose and no markdown fences: [{\\\"title\\\":\\\"...\\\",\\\"angle\\\":\\\"one-sentence hook\\\",\\\"seo_reason\\\":\\\"why this ranks\\\"}].\";\nreturn [{ json: { system, user, seeds } }];"
+        "jsCode": "const seeds = [\n  'Best TMS for small trucking companies',\n  'Broker dispatch workflow',\n  'EDI 204 explained',\n  'How freight brokers automate dispatch'\n];\nconst system = 'You are a freight-tech SEO content strategist for Techvia TMS, You are in 2026, a transportation management system for small-to-medium US freight brokers and carriers. You produce commercial, buyer-intent blog topics: the exact questions a broker, dispatcher, or carrier types into Google when they have a problem a TMS solves.';\nconst user = \"Generate 5 buyer-intent blog topics for freight brokers and carriers that naturally lead the reader toward adopting a TMS. Use long-tail commercial angles (best X for Y, X vs Y, cost of, how to, checklist, '... explained'). Cover variations of these seed topics and expand with fresh siblings: \" + JSON.stringify(seeds) + \". Then RANK them best-first by SEO opportunity: realistic organic search demand, strong commercial/buyer intent, and tight fit to Techvia TMS. Return ONLY a JSON array ordered best-first, no prose and no markdown fences: [{\\\"title\\\":\\\"...\\\",\\\"angle\\\":\\\"one-sentence hook\\\",\\\"seo_reason\\\":\\\"why this ranks\\\"}].\";\nreturn [{ json: { system, user, seeds } }];"
       }
     },
     {
@@ -37,7 +38,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 700 }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 700 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -59,7 +60,7 @@
       "typeVersion": 2,
       "position": [1050, 400],
       "parameters": {
-        "jsCode": "const candidates = $json.candidates || [];\nconst t = candidates[0];\nif (!t) { throw new Error('No topic candidates were generated'); }\nconst writerSystem = 'You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\"we built Techvia TMS because...\", \"the dispatchers we talk to...\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \"in todays fast-paced world\", \"delve\", \"moreover\", \"furthermore\", \"in conclusion\", \"unlock the power\", \"ever-evolving\", \"landscape\", \"navigating the\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. Output ONLY the markdown body (no frontmatter).';\nconst writerUser = 'Write the post. Topic: ' + t.title + '. Angle: ' + t.angle + '.';\nreturn [{ json: { topic_title: t.title, topic_angle: t.angle, topic_slug: t.slug, seo_reason: t.seo_reason, writerSystem, writerUser } }];"
+        "jsCode": "const candidates = $json.candidates || [];\nconst t = candidates[0];\nif (!t) { throw new Error('No topic candidates were generated'); }\nconst writerSystem = 'You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\"we built Techvia TMS because...\", \"the dispatchers we talk to...\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \"in todays fast-paced world\", \"delve\", \"moreover\", \"furthermore\", \"in conclusion\", \"unlock the power\", \"ever-evolving\", \"landscape\", \"navigating the\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. NEVER invent statistics, percentages, dollar figures or survey results: cite a number only if you can attribute it to a named public source (FMCSA, ATA, DAT, BLS), otherwise make the argument without a number. Output ONLY the markdown body (no frontmatter).';\nconst writerUser = 'Write the post. Topic: ' + t.title + '. Angle: ' + t.angle + '.';\nreturn [{ json: { topic_title: t.title, topic_angle: t.angle, topic_slug: t.slug, seo_reason: t.seo_reason, writerSystem, writerUser } }];"
       }
     },
     {
@@ -95,7 +96,7 @@
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'google/gemini-flash-1.5', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 250 }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'openai/gpt-4.1-mini', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 250 }) }}",
         "options": {}
       },
       "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
@@ -155,15 +156,15 @@
       "parameters": {
         "resource": "message",
         "operation": "sendMessage",
-        "chatId": "={{ $vars.TELEGRAM_CHAT_ID }}",
-        "text": "=✅ <b>TMS post published!</b>\\n\\n📝 {{ $('Assemble Markdown').item.json.title }}\\n🔗 https://blogs.techvia.software/posts/{{ $('Assemble Markdown').item.json.slug }}/\\n➡️ CTA → /products/tms\\n\\nCloudflare is deploying (~30 sec) 🚀",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID || 581061053 }}",
+        "text": "=✅ <b>TMS post published!</b>\\n\\n📝 {{ $('Assemble Markdown').item.json.title }}\\n🔗 https://blogs.techvia.software/posts/{{ $('Assemble Markdown').item.json.filename.replace('.md','') }}/\\n➡️ CTA → /products/tms\\n\\nCloudflare is deploying (~30 sec) 🚀",
         "additionalFields": { "parse_mode": "HTML" }
       },
       "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
     }
   ],
   "connections": {
-    "Daily 7AM": { "main": [[{ "node": "Build TMS Context", "type": "main", "index": 0 }]] },
+    "MWF 7AM UTC": { "main": [[{ "node": "Build TMS Context", "type": "main", "index": 0 }]] },
     "Build TMS Context": { "main": [[{ "node": "Generate Candidates", "type": "main", "index": 0 }]] },
     "Generate Candidates": { "main": [[{ "node": "Parse Candidates", "type": "main", "index": 0 }]] },
     "Parse Candidates": { "main": [[{ "node": "Select Best Topic", "type": "main", "index": 0 }]] },
@@ -176,6 +177,7 @@
   },
   "settings": {
     "executionOrder": "v1",
+    "timezone": "UTC",
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
     "errorWorkflow": ""
