@@ -7,108 +7,207 @@
       "name": "MWF 7AM UTC",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [250, 400],
+      "position": [
+        200,
+        400
+      ],
       "parameters": {
         "rule": {
-          "interval": [{ "field": "cronExpression", "expression": "0 7 * * 1,3,5" }]
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1,3,5"
+            }
+          ]
         }
       }
     },
     {
-      "id": "node-context",
-      "name": "Build TMS Context",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [450, 400],
-      "parameters": {
-        "jsCode": "const seeds = [\n  'Best TMS for small trucking companies',\n  'Broker dispatch workflow',\n  'EDI 204 explained',\n  'How freight brokers automate dispatch'\n];\nconst system = 'You are a freight-tech SEO content strategist for Techvia TMS, You are in 2026, a transportation management system for small-to-medium US freight brokers and carriers. You produce commercial, buyer-intent blog topics: the exact questions a broker, dispatcher, or carrier types into Google when they have a problem a TMS solves.';\nconst user = \"Generate 5 buyer-intent blog topics for freight brokers and carriers that naturally lead the reader toward adopting a TMS. Use long-tail commercial angles (best X for Y, X vs Y, cost of, how to, checklist, '... explained'). Cover variations of these seed topics and expand with fresh siblings: \" + JSON.stringify(seeds) + \". Then RANK them best-first by SEO opportunity: realistic organic search demand, strong commercial/buyer intent, and tight fit to Techvia TMS. Return ONLY a JSON array ordered best-first, no prose and no markdown fences: [{\\\"title\\\":\\\"...\\\",\\\"angle\\\":\\\"one-sentence hook\\\",\\\"seo_reason\\\":\\\"why this ranks\\\"}].\";\nreturn [{ json: { system, user, seeds } }];"
-      }
-    },
-    {
-      "id": "node-candidates",
-      "name": "Generate Candidates",
+      "id": "node-list-published-files",
+      "name": "List Published Files",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [650, 400],
+      "position": [
+        400,
+        400
+      ],
       "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openRouterApi",
-        "sendBody": true,
-        "contentType": "json",
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4', messages: [{ role: 'system', content: $json.system }, { role: 'user', content: $json.user }], max_tokens: 700 }) }}",
-        "options": {}
+        "method": "GET",
+        "options": {},
+        "url": "https://api.github.com/repos/nikesh9220/techvia-blog/contents/content/posts?ref=master",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        }
       },
-      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
-    },
-    {
-      "id": "node-parse",
-      "name": "Parse Candidates",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [850, 400],
-      "parameters": {
-        "jsCode": "const raw = $json.choices[0].message.content;\nconst arr = JSON.parse(raw.replace(/```json\\n?|```/g, '').trim());\nconst stop = new Set(['the','a','an','for','to','of','in','on','and','or','how','what','is','are','your','with','vs','from']);\nfunction slugify(t) {\n  return (t || '').toLowerCase().replace(/[^a-z0-9\\s-]/g, '').split(/\\s+/).filter(w => w && !stop.has(w)).join('-').replace(/-+/g, '-').replace(/^-|-$/g, '');\n}\nconst candidates = arr.map(c => ({ title: c.title, angle: c.angle, seo_reason: c.seo_reason || '', slug: slugify(c.title) })).filter(c => c.slug);\nreturn [{ json: { candidates } }];"
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WpSYxNEHvb4nvnGh",
+          "name": "GitHub PAT"
+        }
       }
     },
     {
-      "id": "node-select",
-      "name": "Select Best Topic",
+      "id": "node-list-published-titles",
+      "name": "List Published Titles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "options": {},
+        "url": "https://blogs.techvia.software/index.json"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "node-pick",
+      "name": "Pick Topic",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 400],
+      "position": [
+        800,
+        400
+      ],
       "parameters": {
-        "jsCode": "const candidates = $json.candidates || [];\nconst t = candidates[0];\nif (!t) { throw new Error('No topic candidates were generated'); }\nconst writerSystem = 'You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\"we built Techvia TMS because...\", \"the dispatchers we talk to...\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \"in todays fast-paced world\", \"delve\", \"moreover\", \"furthermore\", \"in conclusion\", \"unlock the power\", \"ever-evolving\", \"landscape\", \"navigating the\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. NEVER invent statistics, percentages, dollar figures or survey results: cite a number only if you can attribute it to a named public source (FMCSA, ATA, DAT, BLS), otherwise make the argument without a number. Output ONLY the markdown body (no frontmatter).';\nconst writerUser = 'Write the post. Topic: ' + t.title + '. Angle: ' + t.angle + '.';\nreturn [{ json: { topic_title: t.title, topic_angle: t.angle, topic_slug: t.slug, seo_reason: t.seo_reason, writerSystem, writerUser } }];"
+        "jsCode": "// Topic list mirrors docs/content/keyword-backlog.md in Techvia-TMS-Marketing:\n// Tier 1 + Tier 2 rows in the 2026-07 / 2026-08 windows, in document order.\n// The slug is authoritative and is used verbatim - nothing slugifies a title anymore.\n// ponytail: embedded array, not a database. Becomes a Postgres table when n8n moves\n// off this laptop onto the server; until then git is the version control for it.\nconst TOPICS = [\n  { slug: \"tms-software-pricing-small-fleets\", keyword: \"TMS software pricing for small fleets\", angle: \"What TMS actually costs, and why per-user pricing punishes growing fleets\", hook: \"flat $199/mo, unlimited users\" },\n  { slug: \"tms-vs-spreadsheets-freight-brokers\", keyword: \"TMS vs spreadsheets for freight brokers\", angle: \"The real cost of the spreadsheet: errors, double-entry, no audit trail\", hook: \"the whole platform\" },\n  { slug: \"tms-for-10-truck-fleet\", keyword: \"TMS for a 10 truck fleet\", angle: \"Sizing guide: what you need at 10 trucks that you didn't at 3\", hook: \"dispatch board, 30-day trial\" },\n  { slug: \"tms-for-25-truck-fleet\", keyword: \"TMS for a 25 truck fleet\", angle: \"The breakpoint where spreadsheets stop working\", hook: \"dispatch + settlements\" },\n  { slug: \"trucking-dispatch-software-free-trial\", keyword: \"trucking dispatch software free trial\", angle: \"What to actually test during a trial, as a 10-point checklist\", hook: \"30-day trial, no card\" },\n  { slug: \"how-to-choose-a-tms-checklist\", keyword: \"how to choose a TMS - buyer's checklist\", angle: \"Vendor-neutral checklist, including the questions that make bad vendors squirm\", hook: \"positions us as the honest one\" },\n  { slug: \"tms-with-edi-204-small-brokers\", keyword: \"TMS with EDI 204 for small brokers\", angle: \"EDI is sold as enterprise-only; it isn't\", hook: \"EDI X12 204 tenders becoming loads\" },\n  { slug: \"dispatch-software-gps-tracking-small-carriers\", keyword: \"dispatch software with GPS tracking for small carriers\", angle: \"Tracking without buying a full telematics contract\", hook: \"driver magic links + Samsara ELD\" },\n  { slug: \"tms-for-brokers-and-carriers\", keyword: \"TMS for freight brokers and carriers (both sides)\", angle: \"Running brokerage and assets on one system instead of two\", hook: \"multi-tenant, holding companies\" },\n  { slug: \"stop-running-dispatch-on-spreadsheets\", keyword: \"how to stop running dispatch on spreadsheets\", angle: \"Migration path week by week; the honest version admits what breaks\", hook: \"dispatch board\" },\n  { slug: \"rate-confirmation-ratecon-workflow\", keyword: \"rate confirmation (RateCon) workflow\", angle: \"From quote to signed RateCon without email ping-pong\", hook: \"quotes module\" },\n  { slug: \"carrier-onboarding-checklist-brokers\", keyword: \"carrier onboarding checklist for brokers\", angle: \"Packet, authority, insurance, W-9: the full checklist as a real checklist\", hook: \"carriers + compliance\" },\n  { slug: \"how-to-reduce-deadhead-empty-miles\", keyword: \"how to reduce deadhead / empty miles\", angle: \"Practical levers, and how to work out what deadhead is costing a fleet\", hook: \"AI Dispatcher margin/deadhead ranking\" },\n  { slug: \"how-to-reduce-dispatcher-workload\", keyword: \"how to reduce dispatcher workload\", angle: \"Where a dispatcher's day actually goes, and what to automate first\", hook: \"dispatch + AI Dispatcher\" },\n  { slug: \"proof-of-delivery-collection-workflow\", keyword: \"proof of delivery (POD) collection workflow\", angle: \"Getting PODs off the driver's phone and into billing the same day\", hook: \"driver magic links\" },\n];\n\n// content/posts/ is the record of what is published - no status column to keep in sync.\n// Filenames are {YYYY-MM-DD}-{slug}.md, so strip the date and compare slugs exactly;\n// substring matching would misfire the moment one slug is a prefix of another.\nconst publishedSlugs = new Set(\n  $('List Published Files').all()\n    .map(i => String(i.json.name || ''))\n    .filter(n => n.endsWith('.md'))\n    .map(n => n.replace(/^\\d{4}-\\d{2}-\\d{2}-/, '').replace(/\\.md$/, ''))\n);\n\nconst row = TOPICS.find(t => !publishedSlugs.has(t.slug));\nconst today = new Date().toISOString().split('T')[0];\n\nif (!row) {\n  return [{ json: { exhausted: true, today, checked: TOPICS.length } }];\n}\n\n// Give the writer a clock. Three June posts carried a hallucinated \"2024\" because\n// the model was guessing the date.\nconst year = today.slice(0, 4);\nconst recentTitles = $input.all().map(i => i.json.title).filter(Boolean).slice(0, 30);\n\nconst writerSystem = \"You are a senior freight operations writer for Techvia (techvia.software). Techvia TMS is a transportation management system for small-to-medium US freight brokers and carriers: drag-and-drop dispatch board, fleet and drivers, live GPS tracking, customer invoicing, driver and carrier settlements, and EDI load tenders. Write a complete, SEO-optimised Hugo blog post in markdown for brokers, dispatchers, and carriers. Voice: human and practical. Vary sentence length; use first-person team voice (\\\"we built Techvia TMS because...\\\", \\\"the dispatchers we talk to...\\\"); use concrete freight detail (stops, RateCons, PODs, deadhead, detention). 900-1200 words. Use ## and ### headings and at most one bulleted list. NEVER use these phrases: \\\"in todays fast-paced world\\\", \\\"delve\\\", \\\"moreover\\\", \\\"furthermore\\\", \\\"in conclusion\\\", \\\"unlock the power\\\", \\\"ever-evolving\\\", \\\"landscape\\\", \\\"navigating the\\\". Weave Techvia TMS in once where it genuinely answers the problem, and end with a natural call-to-action paragraph linking to https://www.techvia.software/products/tms . Do not stuff the product everywhere. NEVER invent statistics, percentages, dollar figures or survey results: cite a number only if you can attribute it to a named public source (FMCSA, ATA, DAT, BLS), otherwise make the argument without a number.\" +\n  ' Today is ' + today + '. The current year is ' + year + ' and this post publishes on ' + today +\n  '. Do not put a year in the title, and never state a year other than ' + year + '.' +\n  ' Articles already on this blog, so do not rewrite one of these: ' + JSON.stringify(recentTitles) + '.' +\n  ' Output ONLY the markdown body (no frontmatter).';\n\nconst writerUser = 'Write the post. Target search query: \"' + row.keyword + '\". Angle: ' + row.angle +\n  '. Product hook to land naturally: ' + row.hook +\n  '. Audience: US freight brokers and carriers running 10-75 power units.' +\n  ' Techvia TMS is $199/mo for unlimited users with a 30-day trial and no card required.';\n\nreturn [{ json: { exhausted: false, topic_slug: row.slug, topic_keyword: row.keyword, publish_date: today, writerSystem, writerUser } }];"
       }
     },
     {
-      "id": "node-writer",
+      "id": "node-exhausted",
+      "name": "Exhausted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "exhausted-check",
+              "leftValue": "={{ $json.exhausted }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-tg-empty",
+      "name": "Notify List Empty",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1200,
+        250
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $vars.TELEGRAM_CHAT_ID || 581061053 }}",
+        "text": "=⚠️ <b>Topic list exhausted</b>\\n\\nAll {{ $json.checked }} rows in the keyword backlog are already published. No post was written today.\\n\\nRefill docs/content/keyword-backlog.md (Techvia-TMS-Marketing) and re-import the workflow.",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "QDbQhiQDyGyIbqse",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "node-write-article",
       "name": "Write Article",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1250, 400],
+      "position": [
+        1200,
+        500
+      ],
       "parameters": {
         "method": "POST",
+        "options": {},
         "url": "https://openrouter.ai/api/v1/chat/completions",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({ model: $vars.WRITING_MODEL || 'anthropic/claude-sonnet-4', messages: [{ role: 'system', content: $json.writerSystem }, { role: 'user', content: $json.writerUser }], max_tokens: 2800 }) }}"
       },
-      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
+      "credentials": {
+        "openRouterApi": {
+          "id": "DS7MeEgya97Jx9db",
+          "name": "OpenRouter account"
+        }
+      }
     },
     {
-      "id": "node-metadata",
+      "id": "node-extract-metadata",
       "name": "Extract Metadata",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1450, 400],
+      "position": [
+        1400,
+        500
+      ],
       "parameters": {
         "method": "POST",
+        "options": {},
         "url": "https://openrouter.ai/api/v1/chat/completions",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "openRouterApi",
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'openai/gpt-4.1-mini', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 250 }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({ model: 'openai/gpt-4.1-mini', messages: [{ role: 'user', content: 'Extract metadata from this freight blog post. Return ONLY JSON: {\"title\": \"the article headline, no year in it\", \"seo_description\": \"max 150 chars\", \"tags\": [\"tag1\",\"tag2\",\"tag3\"], \"category\": \"one of: Freight & Logistics|Dispatch|TMS|Trucking|Freight Tech\"}. Post: ' + $('Write Article').item.json.choices[0].message.content.substring(0, 1500) }], max_tokens: 300 }) }}"
       },
-      "credentials": { "openRouterApi": { "id": "DS7MeEgya97Jx9db", "name": "OpenRouter account" } }
+      "credentials": {
+        "openRouterApi": {
+          "id": "DS7MeEgya97Jx9db",
+          "name": "OpenRouter account"
+        }
+      }
     },
     {
       "id": "node-assembler",
       "name": "Assemble Markdown",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1650, 400],
+      "position": [
+        1600,
+        500
+      ],
       "parameters": {
-        "jsCode": "const today = new Date().toISOString().split('T')[0];\nconst body = $('Write Article').item.json.choices[0].message.content;\nconst metaRaw = $json.choices[0].message.content;\nconst meta = JSON.parse(metaRaw.replace(/```json\\n?|```/g, '').trim());\nconst title = $('Select Best Topic').item.json.topic_title;\nconst slug = $('Select Best Topic').item.json.topic_slug;\nconst desc = (meta.seo_description || '').substring(0, 150);\nconst tags = Array.isArray(meta.tags) ? meta.tags : [];\nconst category = meta.category || 'TMS';\nconst filename = `${today}-${slug}.md`;\nconst post_path = `content/posts/${filename}`;\nconst fm = `---\\ntitle: \"${title.replace(/\"/g, '\\\\\"')}\"\\ndate: ${today}\\ndraft: false\\ntags: ${JSON.stringify(tags)}\\ncategories: [\"${category}\"]\\ndescription: \"${desc.replace(/\"/g, '\\\\\"')}\"\\nshowToc: true\\n---\\n\\n`;\nreturn [{ json: { filename, markdown: fm + body, slug, title, post_path } }];"
+        "jsCode": "const pick = $('Pick Topic').first().json;\nconst today = pick.publish_date;\nconst slug = pick.topic_slug;\nlet body = $('Write Article').item.json.choices[0].message.content;\nconst meta = JSON.parse($json.choices[0].message.content.replace(/```json\\n?|```/g, '').trim());\n\n// The writer usually opens with an H1 duplicating the frontmatter title, and PaperMod\n// renders the frontmatter one - so lift it out and use it instead of shipping two titles.\nconst h1 = body.match(/^\\s*#\\s+(.+)$/m);\nif (h1) body = body.replace(h1[0], '').trimStart();\nconst title = String(meta.title || (h1 && h1[1]) || pick.topic_keyword).trim();\n\nconst q = s => String(s).replace(/\"/g, '\\\\\"');\nconst desc = String(meta.seo_description || '').substring(0, 150);\nconst tags = Array.isArray(meta.tags) ? meta.tags : [];\nconst category = meta.category || 'TMS';\nconst filename = today + '-' + slug + '.md';\nconst fm = [\n  '---',\n  'title: \"' + q(title) + '\"',\n  'date: ' + today,\n  'draft: false',\n  'tags: ' + JSON.stringify(tags),\n  'categories: [\"' + category + '\"]',\n  'description: \"' + q(desc) + '\"',\n  'showToc: true',\n  '---', '', ''\n].join('\\n');\nreturn [{ json: { filename, markdown: fm + body, slug, title, body, post_path: 'content/posts/' + filename } }];"
       }
     },
     {
@@ -116,64 +215,222 @@
       "name": "Base64 Encode",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1850, 400],
+      "position": [
+        1800,
+        500
+      ],
       "parameters": {
         "jsCode": "const encoded = Buffer.from($json.markdown).toString('base64');\nreturn [{ json: { ...$json, content_b64: encoded } }];"
       }
     },
     {
-      "id": "node-github",
+      "id": "node-commit-to-github",
       "name": "Commit to GitHub",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2050, 400],
+      "position": [
+        2000,
+        500
+      ],
       "parameters": {
         "method": "PUT",
+        "options": {},
         "url": "=https://api.github.com/repos/nikesh9220/techvia-blog/contents/content/posts/{{ $json.filename }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Accept", "value": "application/vnd.github+json" },
-            { "name": "X-GitHub-Api-Version", "value": "2022-11-28" }
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
           ]
         },
         "sendBody": true,
         "contentType": "json",
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ message: 'feat: auto-publish TMS post \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({ message: 'feat: auto-publish TMS post \"' + $json.title + '\" via n8n', content: $json.content_b64, branch: 'master', committer: { name: 'Techvia Bot', email: 'bot@techvia.software' } }) }}"
       },
-      "credentials": { "httpHeaderAuth": { "id": "WpSYxNEHvb4nvnGh", "name": "GitHub PAT" } }
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WpSYxNEHvb4nvnGh",
+          "name": "GitHub PAT"
+        }
+      }
+    },
+    {
+      "id": "node-notify-build",
+      "name": "Build Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        500
+      ],
+      "parameters": {
+        "jsCode": "const a = $('Assemble Markdown').first().json;\nconst url = 'https://blogs.techvia.software/posts/' + a.filename.replace(/\\.md$/, '') + '/';\nconst esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst out = [{ json: { text: '<b>Published: ' + esc(a.title) + '</b>\\n' + esc(url) + '\\n\\nCTA -> /products/tms. Full text below - reply to Nikesh if it needs draft:true.' } }];\n\nconst LIMIT = 3500;\nlet buf = '';\nfor (const para of String(a.body).split('\\n\\n')) {\n  if (buf && (buf.length + para.length + 2) > LIMIT) { out.push({ json: { text: esc(buf) } }); buf = ''; }\n  buf = buf ? buf + '\\n\\n' + para : para;\n  while (buf.length > LIMIT) { out.push({ json: { text: esc(buf.slice(0, LIMIT)) } }); buf = buf.slice(LIMIT); }\n}\nif (buf.trim()) out.push({ json: { text: esc(buf) } });\nreturn out;"
+      }
     },
     {
       "id": "node-tg-success",
       "name": "Notify Success",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [2250, 400],
+      "position": [
+        2400,
+        500
+      ],
       "parameters": {
         "resource": "message",
         "operation": "sendMessage",
         "chatId": "={{ $vars.TELEGRAM_CHAT_ID || 581061053 }}",
-        "text": "=✅ <b>TMS post published!</b>\\n\\n📝 {{ $('Assemble Markdown').item.json.title }}\\n🔗 https://blogs.techvia.software/posts/{{ $('Assemble Markdown').item.json.filename.replace('.md','') }}/\\n➡️ CTA → /products/tms\\n\\nCloudflare is deploying (~30 sec) 🚀",
-        "additionalFields": { "parse_mode": "HTML" }
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
       },
-      "credentials": { "telegramApi": { "id": "QDbQhiQDyGyIbqse", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "QDbQhiQDyGyIbqse",
+          "name": "Telegram Bot"
+        }
+      }
     }
   ],
   "connections": {
-    "MWF 7AM UTC": { "main": [[{ "node": "Build TMS Context", "type": "main", "index": 0 }]] },
-    "Build TMS Context": { "main": [[{ "node": "Generate Candidates", "type": "main", "index": 0 }]] },
-    "Generate Candidates": { "main": [[{ "node": "Parse Candidates", "type": "main", "index": 0 }]] },
-    "Parse Candidates": { "main": [[{ "node": "Select Best Topic", "type": "main", "index": 0 }]] },
-    "Select Best Topic": { "main": [[{ "node": "Write Article", "type": "main", "index": 0 }]] },
-    "Write Article": { "main": [[{ "node": "Extract Metadata", "type": "main", "index": 0 }]] },
-    "Extract Metadata": { "main": [[{ "node": "Assemble Markdown", "type": "main", "index": 0 }]] },
-    "Assemble Markdown": { "main": [[{ "node": "Base64 Encode", "type": "main", "index": 0 }]] },
-    "Base64 Encode": { "main": [[{ "node": "Commit to GitHub", "type": "main", "index": 0 }]] },
-    "Commit to GitHub": { "main": [[{ "node": "Notify Success", "type": "main", "index": 0 }]] }
+    "MWF 7AM UTC": {
+      "main": [
+        [
+          {
+            "node": "List Published Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Published Files": {
+      "main": [
+        [
+          {
+            "node": "List Published Titles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Published Titles": {
+      "main": [
+        [
+          {
+            "node": "Pick Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Topic": {
+      "main": [
+        [
+          {
+            "node": "Exhausted?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exhausted?": {
+      "main": [
+        [
+          {
+            "node": "Notify List Empty",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Article": {
+      "main": [
+        [
+          {
+            "node": "Extract Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Metadata": {
+      "main": [
+        [
+          {
+            "node": "Assemble Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Markdown": {
+      "main": [
+        [
+          {
+            "node": "Base64 Encode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Base64 Encode": {
+      "main": [
+        [
+          {
+            "node": "Commit to GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit to GitHub": {
+      "main": [
+        [
+          {
+            "node": "Build Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Notification": {
+      "main": [
+        [
+          {
+            "node": "Notify Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "settings": {
     "executionOrder": "v1",
@@ -183,6 +440,10 @@
     "errorWorkflow": ""
   },
   "staticData": null,
-  "tags": [{ "name": "techvia-blog" }],
+  "tags": [
+    {
+      "name": "techvia-blog"
+    }
+  ],
   "triggerCount": 0
 }
