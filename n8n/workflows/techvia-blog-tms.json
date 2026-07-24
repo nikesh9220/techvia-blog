@@ -1,6 +1,7 @@
 {
   "id": "aaKdHwfUvclrp9Xt",
   "name": "techvia-blog-tms",
+  "active": false,
   "nodes": [
     {
       "id": "node-schedule",
@@ -53,8 +54,8 @@
       },
       "credentials": {
         "httpHeaderAuth": {
-          "id": "WpSYxNEHvb4nvnGh",
-          "name": "GitHub PAT"
+          "id": "m4Y3fngo6TgLnBfo",
+          "name": "Header Auth account"
         }
       }
     },
@@ -138,8 +139,8 @@
       },
       "credentials": {
         "telegramApi": {
-          "id": "QDbQhiQDyGyIbqse",
-          "name": "Telegram Bot"
+          "id": "Dmwbyf8ZKCPyPDJi",
+          "name": "Telegram account"
         }
       }
     },
@@ -165,7 +166,7 @@
       },
       "credentials": {
         "openRouterApi": {
-          "id": "DS7MeEgya97Jx9db",
+          "id": "PiXKiDlxpBE0laa7",
           "name": "OpenRouter account"
         }
       }
@@ -192,7 +193,7 @@
       },
       "credentials": {
         "openRouterApi": {
-          "id": "DS7MeEgya97Jx9db",
+          "id": "PiXKiDlxpBE0laa7",
           "name": "OpenRouter account"
         }
       }
@@ -258,8 +259,8 @@
       },
       "credentials": {
         "httpHeaderAuth": {
-          "id": "WpSYxNEHvb4nvnGh",
-          "name": "GitHub PAT"
+          "id": "m4Y3fngo6TgLnBfo",
+          "name": "Header Auth account"
         }
       }
     },
@@ -296,8 +297,8 @@
       },
       "credentials": {
         "telegramApi": {
-          "id": "QDbQhiQDyGyIbqse",
-          "name": "Telegram Bot"
+          "id": "Dmwbyf8ZKCPyPDJi",
+          "name": "Telegram account"
         }
       }
     }
